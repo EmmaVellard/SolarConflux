@@ -13,6 +13,7 @@ setup(
         "matplotlib",
         "astropy",
         "sunpy",
+        "astroquery",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

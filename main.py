@@ -1,13 +1,5 @@
 from solarconflux.spatialitems.functions import get_trajectories, matching_dates, save_match, save_plot, get_info
-
-KM_S_TO_M_S = 1000.0
-
-def prompt_float(prompt, default):
-    try:
-        return float(input(prompt)) * KM_S_TO_M_S
-    except ValueError:
-        print(f"Invalid input, defaulting to {default / KM_S_TO_M_S} km/s.")
-        return default
+import os
 
 def SolarConflux():
     print("\nAvailable bodies for trajectory retrieval:")
@@ -31,9 +23,9 @@ def SolarConflux():
     
     speed_choice = input("\nDo you want to choose the solar wind speed? y for yes, n for no (default: 400 km/s): ")
     if speed_choice.lower() == 'y':
-        u_sw = input("Enter solar wind speed for Parker spiral (km/s): ")
+        u_sw = float(input("Enter solar wind speed for Parker spiral (km/s): ")) * 1e3  # convert to m/s
     else:
-        u_sw = 400e3
+        u_sw = 400e3  # default in m/s
 
     base_path = input("\nEnter the folder path where results should be saved (e.g., /Users/xxx/output): ").strip()
     if not os.path.exists(base_path):

@@ -68,10 +68,12 @@ def get_info():
     Prints the list of available bodies that can be used in get_trajectories.
     """
     body_info = get_infos()
-    for body, info in body_info.items():
-        print(f"{body}: {info['id']}")
 
-    print("For more information, refer to the Horizons documentation.")
+    print("Spacecraft: (yyyy-mm-dd hh:mm)\n")
+    for body, info in body_info.items():
+        print(f"- {body}: {info['start']} to {info['end']}")
+    
+    print("\nFor more information, refer to the Horizons documentation.")
 
 def get_trajectories(body_list, start_time, end_time, step='60m'):
     """
