@@ -34,9 +34,9 @@ SolarConflux supports the detection of the following geometric alignments:
 
 ## 🧩 Modules Used
 
-- `SunPy` / `Astropy`: For coordinate handling and trajectory querying.
+- `SunPy` / `Astropy` / `Astroquery`: For coordinate handling and trajectory querying.
 - `Matplotlib`: For trajectory plotting in polar view.
-- `CSV`, `OS`: For saving and managing output data.
+- `CSV` / `OS`: For saving and managing output data.
 
 ---
 
@@ -46,7 +46,7 @@ SolarConflux supports the detection of the following geometric alignments:
 - Time range and time step for analysis.
 - Geometrical configuration(s) to detect.
 - Optional parameters:
-  - Arbitrary angle (for `arbitrary` mode).
+  - Arbitrary angle (for `arbitrary` mode, in deg).
   - Solar wind speed (for `parker` mode, in km/s).
 
 ## 📤 Outputs
