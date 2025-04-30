@@ -41,7 +41,6 @@ import astropy.units as u
 from astropy.time import Time
 from sunpy.coordinates import get_horizons_coord, HeliocentricInertial
 
-
 def get_infos():
     """
     Returns the mapping of celestial bodies and spacecraft to their respective Horizons identifiers,
@@ -118,7 +117,7 @@ def matching_dates(geometry_choices, spacecraft_names, trajectories, frame=Helio
 
     return all_matching_entries
 
-def save_match(matching_entries, save_base_path=base_path):
+def save_match(matching_entries, save_base_path):
     """
     Save matching entries for multiple geometries to a single CSV file.
     """
@@ -146,7 +145,7 @@ def coord_to_polar(coord):
     """Convert SkyCoord object to polar coordinates (longitude, distance)."""
     return coord.spherical.lon.rad, coord.spherical.distance.value
 
-def save_plot(matching_trajectories, trajectories, save_base_path=base_path):
+def save_plot(matching_trajectories, trajectories, save_base_path):
     """
     Save plots of spacecraft positions over time based on matching geometries.
     """

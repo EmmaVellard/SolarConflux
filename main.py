@@ -35,6 +35,11 @@ def SolarConflux():
     else:
         u_sw = 400e3
 
+    base_path = input("\nEnter the folder path where results should be saved (e.g., /Users/xxx/output): ").strip()
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+        print(f"Created directory: {base_path}")
+
     print("\nFetching trajectories...")
     trajectories = get_trajectories(body_list, start_time, end_time, step)
 
@@ -42,8 +47,8 @@ def SolarConflux():
     match = matching_dates(geometry_choice, body_list, trajectories, arbitrary_angle=arbitrary_angle, u_sw=u_sw)
 
     print("\nSaving the results...")
-    save_match(match)
-    save_plot(match, trajectories)
+    save_match(match, base_path)
+    save_plot(match, trajectories, base_path)
 
 if __name__ == "__main__":
     SolarConflux()
