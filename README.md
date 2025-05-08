@@ -18,7 +18,9 @@ SolarConflux supports the detection of the following geometric alignments:
 
 - **Arbitrary**: Allows for custom angle detection between any pair of objects, useful for specific science use cases (e.g., partial alignments).
 
-- **Parker Spiral**: Alignment based on the expected spiral trajectory of the solar wind originating from a source region, factoring in the solar wind speed.
+- **Parker Spiral**: Alignment based on the expected parker spiral trajectory of the solar wind originating from a source region.
+
+- **Cone Parker**: Combinaison of the Cone and Parker alignements. 
 
 ---
 

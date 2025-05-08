@@ -7,6 +7,7 @@ and celestial bodies using their trajectories. It checks for specific geometric 
 3. Quadrature: Spacecraft are at right angles (90° apart).  
 4. Arbitrary Angle: Spacecraft align at a user-defined angular separation.  
 5. Parker Spiral: Spacecraft follow the same Parker spiral trajectory considering solar wind speed.  
+6. Cone Parker: Spacecraft are within a cone and follow the same Parker spiral trajectory.
 
 Features:
 - Computes spacecraft longitudes from their trajectories.
@@ -105,6 +106,10 @@ class Geometry:
                         phi0_1 = self.parker_spiral_function(r1, lon1, u_sw)
                         phi0_2 = self.parker_spiral_function(r2, lon2, u_sw)
                         condition = np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker)
+                    elif mode == 'coneparker':
+                        phi0_1 = self.parker_spiral_function(r1, lon1, u_sw)
+                        phi0_2 = self.parker_spiral_function(r2, lon2, u_sw)
+                        condition = (np.abs(lon1 - lon2) <= self.cone_width) and (np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker))
                     else:
                         condition = False
 

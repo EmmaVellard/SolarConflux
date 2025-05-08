@@ -109,7 +109,7 @@ def matching_dates(geometry_choices, spacecraft_names, trajectories, frame=Helio
     geometry = Geometry(spacecraft_names, trajectories, frame, cone_width, tolerance)
 
     for mode in geometry_choices:
-        if mode in ['opposition', 'cone', 'quadrature', 'arbitrary', 'parker']:
+        if mode in ['opposition', 'cone', 'quadrature', 'arbitrary', 'parker', 'coneparker']:
             matches = geometry.check_geometry(mode=mode.lower(), arbitrary_angle=arbitrary_angle, u_sw=u_sw)
             if matches:
                 all_matching_entries[mode] = matches

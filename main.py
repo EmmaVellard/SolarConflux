@@ -16,7 +16,7 @@ def SolarConflux():
     else:
         step = '60m'
 
-    print("\nAvailable geometric alignments: opposition, cone, quadrature, arbitrary, parker")
+    print("\nAvailable geometric alignments: opposition, cone, quadrature, arbitrary, parker, coneparker")
     geometry_choice = [g.strip().lower() for g in input("Enter alignment types (comma-separated): ").split(',')]
 
     arbitrary_angle = float(input("Enter the desired angle in degrees: ")) if 'arbitrary' in geometry_choice else None
