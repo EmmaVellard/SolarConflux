@@ -94,7 +94,7 @@ step = '60m'
 trajectories = get_trajectories(body_list, start_time, end_time, step)
 
 # Define alignment types
-geometry_choices = ['cone', 'opposition', 'quadrature', 'arbitrary', 'parker']
+geometry_choices = ['cone', 'opposition', 'quadrature', 'arbitrary', 'parker', 'coneparker']
 
 # Parameters
 arbitrary_angle = 30  # degrees
@@ -108,8 +108,38 @@ match = matching_dates(geometry_choices, body_list, trajectories,
 save_match(match)
 save_plot(match, trajectories)
 ```
-
 ---
+
+## 🖼️ Example Outputs
+
+After running the example script, SolarConflux generates the following outputs:
+
+### CSV Output
+
+<p align="center">
+  <img src="images/csvresult.png" alt="CSV Resulting Document" width="800"/>
+</p>
+
+A `.csv` file containing timestamps and spacecraft involved in detected alignments.
+
+
+### Cone Alignment Plot
+
+<p align="center">
+  <img src="images/cone.png" alt="Cone Alignment"/>
+</p>
+
+Visualization of a **cone alignment** where multiple spacecraft lie within a narrow angular sector as seen from the Sun.
+
+
+### Parker Spiral Alignment Plot
+
+<p align="center">
+  <img src="images/parker.png" alt="Parker Spiral Alignment"/>
+</p>
+
+Representation of a **Parker spiral alignment**, showing spacecraft aligned along the solar wind’s expected trajectory.
+
 
 ## 🧑‍🚀 Credits
 
