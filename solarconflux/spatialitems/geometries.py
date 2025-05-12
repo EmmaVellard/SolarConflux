@@ -44,7 +44,7 @@ class Geometry:
         self.frame = frame
         self.cone_width = cone_width
         self.tolerance = tolerance
-        self.angles = self.calculate_angles()
+        self.angles, self.latitudes = self.calculate_angles()
 
         self.tolerance_parker = np.radians(5)  # radians
         self.source_surface_radius = 2.5 * 696000.0  # km (2.5 Rsun)
@@ -52,14 +52,19 @@ class Geometry:
 
     def calculate_angles(self):
         angles = []
+        latitudes = []
         for step in range(len(next(iter(self.trajectories.values())))):
             step_angles = []
+            step_lats = []
             for skycoords in self.trajectories.values():
-                # Convert to radians and wrap in [0, 2π]
-                lon = skycoords[step].spherical.lon.to_value(u.rad) % (2 * np.pi)
+                coord = skycoords[step].spherical
+                lon = coord.lon.to_value(u.rad) % (2 * np.pi)
+                lat = coord.lat.to_value(u.rad)
                 step_angles.append(lon)
+                step_lats.append(lat)
             angles.append(step_angles)
-        return angles
+            latitudes.append(step_lats)
+        return angles, latitudes
 
     def parker_spiral_function(self, r_km, lon_rad, u_sw_mps):
         """
@@ -83,6 +88,7 @@ class Geometry:
 
             for spacecraft1, skycoords1 in self.trajectories.items():
                 lon1 = self.angles[step][list(self.trajectories).index(spacecraft1)]
+                lat1 = self.latitudes[step][list(self.trajectories).index(spacecraft1)]
                 r1 = skycoords1[step].spherical.distance.to('km').value
 
                 group = {spacecraft1}
@@ -92,24 +98,27 @@ class Geometry:
                         continue
 
                     lon2 = self.angles[step][list(self.trajectories).index(spacecraft2)]
+                    lat2 = self.latitudes[step][list(self.trajectories).index(spacecraft2)]
                     r2 = skycoords2[step].spherical.distance.to('km').value
 
                     if mode == 'opposition':
+                        # no constraint on latitude
                         condition = np.isclose(np.abs(lon1 - lon2), np.pi, atol=self.tolerance)
                     elif mode == 'cone':
+                        # no constraint on latitude
                         condition = np.abs(lon1 - lon2) <= self.cone_width
                     elif mode == 'quadrature':
-                        condition = np.isclose(np.abs(lon1 - lon2), np.pi / 2, atol=self.tolerance)
+                        condition = (np.isclose(np.abs(lon1 - lon2), np.pi / 2, atol=self.tolerance)) or (np.isclose(np.abs(lat1 - lat2), np.pi / 2, atol=self.tolerance))
                     elif mode == 'arbitrary' and arbitrary_angle is not None:
                         condition = np.isclose(np.abs(lon1 - lon2), arbitrary_angle, atol=self.tolerance)
                     elif mode == 'parker':
                         phi0_1 = self.parker_spiral_function(r1, lon1, u_sw)
                         phi0_2 = self.parker_spiral_function(r2, lon2, u_sw)
-                        condition = np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker)
+                        condition = (np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker)) and (np.isclose(lat1, lat2, atol=self.tolerance))
                     elif mode == 'coneparker':
                         phi0_1 = self.parker_spiral_function(r1, lon1, u_sw)
                         phi0_2 = self.parker_spiral_function(r2, lon2, u_sw)
-                        condition = (np.abs(lon1 - lon2) <= self.cone_width) and (np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker))
+                        condition = (np.abs(lon1 - lon2) <= self.cone_width) and (np.isclose(phi0_1, phi0_2, atol=self.tolerance_parker)) and (np.isclose(lat1, lat2, atol=self.tolerance))
                     else:
                         condition = False
 

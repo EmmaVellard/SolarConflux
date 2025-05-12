@@ -21,11 +21,14 @@ def SolarConflux():
 
     arbitrary_angle = float(input("Enter the desired angle in degrees: ")) if 'arbitrary' in geometry_choice else None
     
-    speed_choice = input("\nDo you want to choose the solar wind speed? y for yes, n for no (default: 400 km/s): ")
-    if speed_choice.lower() == 'y':
-        u_sw = float(input("Enter solar wind speed for Parker spiral (km/s): ")) * 1e3  # convert to m/s
+    if 'parker' in geometry_choice or 'coneparker' in geometry_choice:
+        speed_choice = input("\nDo you want to choose the solar wind speed? y for yes, n for no (default: 400 km/s): ")
+        if speed_choice.lower() == 'y':
+            u_sw = float(input("Enter solar wind speed for Parker spiral (km/s): ")) * 1e3  # convert to m/s
+        else:
+            u_sw = 400e3  # default in m/s
     else:
-        u_sw = 400e3  # default in m/s
+        None
 
     base_path = input("\nEnter the folder path where results should be saved (e.g., /Users/xxx/output): ").strip()
     if not os.path.exists(base_path):
