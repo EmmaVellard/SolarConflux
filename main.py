@@ -35,6 +35,8 @@ def SolarConflux():
         os.makedirs(base_path)
         print(f"Created directory: {base_path}")
 
+    plot_choice = input("\nDo you want to save the plots? y for yes, n for no (the csv file will be saved in any case) : ")
+
     print("\nFetching trajectories...")
     trajectories = get_trajectories(body_list, start_time, end_time, step)
 
@@ -43,7 +45,11 @@ def SolarConflux():
 
     print("\nSaving the results...")
     save_match(match, base_path)
-    save_plot(match, trajectories, base_path)
+
+    if plot_choice.lower() == 'y':
+        save_plot(match, trajectories, base_path)
+    else:
+        None
 
 if __name__ == "__main__":
     SolarConflux()
