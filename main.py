@@ -2,6 +2,9 @@ from solarconflux.spatialitems.functions import get_trajectories, matching_dates
 import os
 
 def SolarConflux():
+    arbitrary_angle = None
+    u_sw = None
+
     print("\nAvailable bodies for trajectory retrieval:")
     get_info()
 
