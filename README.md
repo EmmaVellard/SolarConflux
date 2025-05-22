@@ -10,15 +10,15 @@
 
 SolarConflux supports the detection of the following geometric alignments:
 
-- **Opposition**: One spacecraft or planet is on the opposite side of the Sun from another, forming a Sun–object1–object2 alignment with an angle ≈ 180°.
+- **Opposition**: One spacecraft or planet is on the opposite side of the Sun from another, forming a object1-Sun–object2 alignment with an angle ≈ 180°.
   
 - **Quadrature**: The angle between two objects as seen from the Sun is ≈ 90°, corresponding to a perpendicular configuration.
   
-- **Cone**: Two or more spacecraft lie within a 10° angular separation as seen from a central body (typically the Sun). 
+- **Cone**: Two or more spacecraft lie within a 10° angular separation as seen from the Sun. 
 
-- **Arbitrary**: Allows for custom angle detection between any pair of objects, useful for specific science use cases (e.g., partial alignments).
+- **Arbitrary**: Allows for custom angle detection between any pair of objects as seen from the Sun, useful for specific science use cases (e.g., partial alignments).
 
-- **Parker Spiral**: Alignment based on the expected parker spiral trajectory of the solar wind originating from a source region.
+- **Parker Spiral**: Alignment based on the expected parker spiral trajectory of the solar wind originating from a source region of the Sun.
 
 - **Cone Parker**: Combinaison of the Cone and Parker alignements. 
 
