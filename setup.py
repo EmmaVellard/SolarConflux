@@ -8,6 +8,7 @@ setup(
     author_email="emma.vellard@outlook.fr",
     url="https://github.com/EmmaVellard/SolarConflux",
     packages=find_packages(),
+    python_requires=">=3.9",
     install_requires=[
         "numpy",
         "matplotlib",
@@ -15,10 +16,5 @@ setup(
         "sunpy",
         "astroquery",
     ],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
-    python_requires='>=3.8',
+    include_package_data=True,
 )

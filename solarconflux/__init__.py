@@ -1,5 +1,9 @@
-"""Top-level package for solarconflux."""
+"""
+SolarConflux
+============
 
-__author__ = """Emma Vellard"""
-__email__ = 'emma.vellard@outlook.fr'
-__version__ = '0.1.0'
+Tool for identifying geometric alignments between spacecraft
+around the Sun for coordinated solar observations.
+"""
+
+__version__ = "0.1.0"

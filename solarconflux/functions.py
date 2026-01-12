@@ -28,7 +28,7 @@ Author: Emma Vellard
 Date: 2025
 """
 
-from solarconflux.spatialitems.geometries import Geometry
+from solarconflux.geometries import Geometry
 
 import os
 import csv

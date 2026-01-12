@@ -1,4 +1,4 @@
-from solarconflux.spatialitems.functions import get_trajectories, matching_dates, save_match, save_plot, get_info
+from solarconflux.functions import get_trajectories, matching_dates, save_match, save_plot, get_info
 import os
 
 def SolarConflux():
