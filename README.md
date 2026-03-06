@@ -4,6 +4,8 @@
 
 **SolarConflux** is a Python module for retrieving and analyzing the trajectories of multiple spacecraft and planets in the heliocentric reference frame. It detects specific geometric alignments between bodies, such as opposition, quadrature, Parker spiral, and more — valuable for planning coordinated solar observations or contextualizing space weather events.
 
+**If you use this tool in your work, please consider citing the repository or mentioning the author.**
+
 ---
 
 ## 🔭 Geometries Definition
@@ -55,25 +57,6 @@ SolarConflux supports the detection of the following geometric alignments:
 
 - A `.csv` file listing all detected alignment times and involved bodies.
 - Polar plots showing spacecraft trajectories and relative positions.
-
----
-
-## 🛠️ Installation
-
-```bash
-pip install git+https://github.com/EmmaVellard/SolarConflux.git
-```
-
----
-
-## 🧪 Usage
-
-To launch SolarConflux interactively:
-
-```python
-from solarconflux import SolarConflux
-SolarConflux()
-```
 
 ---
 
