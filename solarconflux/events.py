@@ -3,11 +3,38 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, Iterable, List, Sequence, Tuple, TypeVar
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar
 
 TimeLike = TypeVar("TimeLike")
 Group = Tuple[str, ...]
 GroupedEvent = Tuple[TimeLike, TimeLike, List[str]]
+
+
+class MatchEntry(tuple):
+    """Tuple-compatible match entry with optional event metadata."""
+
+    def __new__(
+        cls,
+        start_time: str,
+        end_time: str,
+        group: List[str],
+        latitude_span_deg: Optional[float] = None,
+    ) -> "MatchEntry":
+        value = super().__new__(cls, (start_time, end_time, group))
+        value.latitude_span_deg = latitude_span_deg
+        return value
+
+    @property
+    def start_time(self) -> str:
+        return self[0]
+
+    @property
+    def end_time(self) -> str:
+        return self[1]
+
+    @property
+    def group(self) -> List[str]:
+        return self[2]
 
 
 def normalize_group(group: Iterable[str]) -> Group:

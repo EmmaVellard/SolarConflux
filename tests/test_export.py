@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from solarconflux.events import MatchEntry
 from solarconflux.export import CSV_COLUMNS, save_match, save_run_metadata
 
 
@@ -11,7 +12,12 @@ class ExportTests(unittest.TestCase):
     def test_save_match_writes_scientific_columns(self):
         matches = {
             "cone": [
-                ("2025-01-01 00:00:00", "2025-01-01 02:00:00", ["Earth", "Venus"]),
+                MatchEntry(
+                    "2025-01-01 00:00:00",
+                    "2025-01-01 02:00:00",
+                    ["Earth", "Venus"],
+                    latitude_span_deg=4.0,
+                ),
             ]
         }
 
@@ -22,6 +28,7 @@ class ExportTests(unittest.TestCase):
                 parameters={
                     "tolerance_degrees": 5,
                     "cone_width_degrees": 10,
+                    "latitude_tolerance_deg": 5,
                     "solar_wind_speed_km_s": 400,
                 },
             )
@@ -37,6 +44,8 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(rows[0]["number_of_bodies"], "2")
         self.assertEqual(rows[0]["duration_hours"], "2")
         self.assertEqual(rows[0]["duration_days"], "0.0833333")
+        self.assertEqual(rows[0]["latitude_tolerance_deg"], "5")
+        self.assertEqual(rows[0]["latitude_span_deg"], "4")
         self.assertEqual(rows[0]["cone_width_deg"], "10")
 
     def test_save_match_writes_headers_when_no_matches(self):
@@ -54,7 +63,7 @@ class ExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             metadata_path = save_run_metadata(
                 Path(tmpdir),
-                {"step": "60m"},
+                {"step": "60m", "latitude_tolerance_deg": 5},
                 ["Earth"],
                 {"Earth": 399},
                 output_files=["results.csv", "plot.png"],
@@ -64,6 +73,7 @@ class ExportTests(unittest.TestCase):
 
         self.assertIn("SolarConflux is not a full heliospheric MHD model.", metadata["assumptions"])
         self.assertEqual(metadata["horizons_ids"]["Earth"], 399)
+        self.assertEqual(metadata["input_parameters"]["latitude_tolerance_deg"], 5)
         self.assertEqual(metadata["generated_output_filenames"], ["plot.png", "results.csv"])
 
 

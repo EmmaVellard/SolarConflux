@@ -12,6 +12,7 @@ from .trajectories import get_info, get_trajectories
 from .validation import (
     angle_to_radians as _angle_to_radians,
     normalize_geometry_choices,
+    validate_optional_latitude_tolerance_degrees,
     validate_non_negative_angle,
     validate_positive_angle,
     validate_solar_wind_speed_mps,
@@ -26,6 +27,7 @@ def matching_dates(
     cone_width: float = 10.0,
     tolerance: float = 10.0,
     arbitrary_angle: Optional[float] = None,
+    latitude_tolerance_deg: Optional[float] = None,
     u_sw: float = 400e3,
     angle_unit: str = "deg",
     verbose: bool = True,
@@ -51,9 +53,22 @@ def matching_dates(
             _angle_to_radians(arbitrary_angle, angle_unit, "arbitrary_angle"),
             "arbitrary_angle",
         )
+    latitude_tolerance_degrees = validate_optional_latitude_tolerance_degrees(latitude_tolerance_deg)
+    latitude_tolerance_rad = (
+        None
+        if latitude_tolerance_degrees is None
+        else _angle_to_radians(latitude_tolerance_degrees, "deg", "latitude_tolerance_deg")
+    )
 
     speed_mps = validate_solar_wind_speed_mps(u_sw)
-    geometry = Geometry(bodies, trajectories, frame, cone_width_rad, tolerance_rad)
+    geometry = Geometry(
+        bodies,
+        trajectories,
+        frame,
+        cone_width_rad,
+        tolerance_rad,
+        latitude_tolerance=latitude_tolerance_rad,
+    )
 
     all_matching_entries: Dict[str, object] = {}
     for mode in modes:
@@ -74,6 +89,7 @@ def build_run_parameters(
     cone_width_degrees: float = 10.0,
     tolerance_degrees: float = 10.0,
     arbitrary_angle_degrees: Optional[float] = None,
+    latitude_tolerance_deg: Optional[float] = None,
     solar_wind_speed_km_s: float = 400.0,
 ) -> Dict[str, Any]:
     """Return a metadata-friendly parameter dictionary."""
@@ -81,6 +97,7 @@ def build_run_parameters(
         "cone_width_degrees": cone_width_degrees,
         "tolerance_degrees": tolerance_degrees,
         "arbitrary_angle_degrees": arbitrary_angle_degrees,
+        "latitude_tolerance_deg": latitude_tolerance_deg,
         "solar_wind_speed_km_s": solar_wind_speed_km_s,
     }
 

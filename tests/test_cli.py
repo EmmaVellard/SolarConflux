@@ -15,6 +15,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("--bodies", result.stdout)
         self.assertIn("--geometries", result.stdout)
+        self.assertIn("--latitude-tolerance", result.stdout)
 
 
 if __name__ == "__main__":

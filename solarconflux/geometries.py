@@ -11,10 +11,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Iterable, List, Mapping, MutableSequence, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .angles import angular_separation_rad, target_separation_rad
-from .events import format_timestamp, group_consecutive_events
+from .events import MatchEntry, format_timestamp
 from .validation import (
     normalize_geometry_choices,
     validate_non_negative_angle,
@@ -44,7 +44,7 @@ class BodyState:
     name: str
     time: object
     lon_rad: float
-    lat_rad: float
+    lat_rad: Optional[float]
     radius_km: float
 
 
@@ -61,6 +61,7 @@ class Geometry:
         solar_rotation_period: float = 25.38,
         parker_tolerance: float = math.radians(5.0),
         source_surface_radius_km: float = 2.5 * 696000.0,
+        latitude_tolerance: Optional[float] = None,
     ) -> None:
         self.spacecraft_names = tuple(spacecraft_names)
         self.trajectories = dict(trajectories)
@@ -68,6 +69,11 @@ class Geometry:
         self.cone_width = validate_positive_angle(cone_width, "cone_width")
         self.tolerance = validate_non_negative_angle(tolerance, "tolerance")
         self.tolerance_parker = validate_non_negative_angle(parker_tolerance, "parker_tolerance")
+        self.latitude_tolerance = (
+            None
+            if latitude_tolerance is None
+            else validate_non_negative_angle(latitude_tolerance, "latitude_tolerance")
+        )
         self.source_surface_radius = float(source_surface_radius_km)
 
         if solar_rotation_period <= 0 or not math.isfinite(float(solar_rotation_period)):
@@ -138,7 +144,7 @@ class Geometry:
         mode: str = "opposition",
         arbitrary_angle: Optional[float] = None,
         u_sw: float = 400e3,
-    ) -> List[Tuple[str, str, List[str]]]:
+    ) -> List[MatchEntry]:
         """Return grouped events matching one geometry mode.
 
         ``arbitrary_angle`` is interpreted in radians here. Public helper
@@ -153,16 +159,48 @@ class Geometry:
         if normalized_mode in {"parker", "coneparker"}:
             validate_solar_wind_speed_mps(u_sw)
 
-        timeline = []
+        active_groups: Dict[Tuple[str, ...], Tuple[object, object, Optional[float]]] = {}
+        matching_entries: List[MatchEntry] = []
         for step_states in self.states:
             timestamp = step_states[0].time
             groups = self._groups_for_step(step_states, normalized_mode, arbitrary_angle, u_sw)
-            timeline.append((timestamp, groups))
+            new_active_groups: Dict[Tuple[str, ...], Tuple[object, object, Optional[float]]] = {}
 
-        return [
-            (format_timestamp(start), format_timestamp(end), group)
-            for start, end, group in group_consecutive_events(timeline)
-        ]
+            for group, latitude_span_deg in groups:
+                if group in active_groups:
+                    start_time, _, previous_span = active_groups[group]
+                    new_active_groups[group] = (
+                        start_time,
+                        timestamp,
+                        _max_optional(previous_span, latitude_span_deg),
+                    )
+                else:
+                    new_active_groups[group] = (timestamp, timestamp, latitude_span_deg)
+
+            for ended_group, (start_time, end_time, latitude_span_deg) in active_groups.items():
+                if ended_group not in new_active_groups:
+                    matching_entries.append(
+                        MatchEntry(
+                            format_timestamp(start_time),
+                            format_timestamp(end_time),
+                            list(ended_group),
+                            latitude_span_deg=latitude_span_deg,
+                        )
+                    )
+
+            active_groups = new_active_groups
+
+        for group, (start_time, end_time, latitude_span_deg) in active_groups.items():
+            matching_entries.append(
+                MatchEntry(
+                    format_timestamp(start_time),
+                    format_timestamp(end_time),
+                    list(group),
+                    latitude_span_deg=latitude_span_deg,
+                )
+            )
+
+        return matching_entries
 
     def _groups_for_step(
         self,
@@ -170,8 +208,9 @@ class Geometry:
         mode: str,
         arbitrary_angle: Optional[float],
         u_sw: float,
-    ) -> List[Tuple[str, ...]]:
-        groups: MutableSequence[Tuple[str, ...]] = []
+    ) -> List[Tuple[Tuple[str, ...], Optional[float]]]:
+        groups: Dict[Tuple[str, ...], Optional[float]] = {}
+        state_by_name = {state.name: state for state in step_states}
 
         for state1 in step_states:
             group = {state1.name}
@@ -183,9 +222,12 @@ class Geometry:
                     group.add(state2.name)
 
             if len(group) > 1 and not (len(group) == 2 and "Sun" in group):
-                groups.append(tuple(sorted(group)))
+                candidate_group = tuple(sorted(group))
+                latitude_span_deg = self._latitude_span_degrees(state_by_name, candidate_group)
+                if self._passes_latitude_filter(latitude_span_deg):
+                    groups[candidate_group] = _max_optional(groups.get(candidate_group), latitude_span_deg)
 
-        return list(groups)
+        return list(groups.items())
 
     def _condition_matches(
         self,
@@ -222,8 +264,35 @@ class Geometry:
         phi0_1 = self.parker_spiral_function(state1.radius_km, state1.lon_rad, u_sw)
         phi0_2 = self.parker_spiral_function(state2.radius_km, state2.lon_rad, u_sw)
         footpoint_close = angular_separation_rad(phi0_1, phi0_2) <= self.tolerance_parker
-        latitude_close = abs(state1.lat_rad - state2.lat_rad) <= self.tolerance
+        latitude_close = abs(_require_latitude(state1) - _require_latitude(state2)) <= self.tolerance
         return footpoint_close and latitude_close
+
+    def _latitude_span_degrees(
+        self,
+        state_by_name: Mapping[str, BodyState],
+        group: Tuple[str, ...],
+    ) -> Optional[float]:
+        latitudes = []
+        for name in group:
+            latitude = state_by_name[name].lat_rad
+            if latitude is None or not math.isfinite(latitude):
+                if self.latitude_tolerance is not None:
+                    raise ValueError(
+                        "Latitude data are missing or nonfinite for "
+                        f"{name}; cannot apply latitude_tolerance_deg."
+                    )
+                return None
+            latitudes.append(latitude)
+        if not latitudes:
+            return None
+        return math.degrees(max(latitudes) - min(latitudes))
+
+    def _passes_latitude_filter(self, latitude_span_deg: Optional[float]) -> bool:
+        if self.latitude_tolerance is None:
+            return True
+        if latitude_span_deg is None:
+            raise ValueError("Latitude data are required when latitude_tolerance_deg is set.")
+        return latitude_span_deg <= math.degrees(self.latitude_tolerance) + 1e-12
 
     def _extract_state(self, name: str, coordinate: object) -> BodyState:
         if isinstance(coordinate, TrajectoryPoint):
@@ -246,7 +315,8 @@ class Geometry:
             )
 
         lon_rad = _angle_to_rad(getattr(spherical, "lon"))
-        lat_rad = _angle_to_rad(getattr(spherical, "lat", 0.0))
+        lat = getattr(spherical, "lat", None)
+        lat_rad = None if lat is None else _angle_to_rad(lat)
         radius_km = _distance_to_km(getattr(spherical, "distance"))
         timestamp = _coordinate_time(transformed)
         return BodyState(name=name, time=timestamp, lon_rad=lon_rad, lat_rad=lat_rad, radius_km=radius_km)
@@ -280,3 +350,17 @@ def _coordinate_time(value: object) -> object:
     if time_value is not None:
         return time_value
     raise TypeError("Trajectory point must expose an observation time.")
+
+
+def _max_optional(value1: Optional[float], value2: Optional[float]) -> Optional[float]:
+    if value1 is None:
+        return value2
+    if value2 is None:
+        return value1
+    return max(value1, value2)
+
+
+def _require_latitude(state: BodyState) -> float:
+    if state.lat_rad is None or not math.isfinite(state.lat_rad):
+        raise ValueError(f"Latitude data are missing or nonfinite for {state.name}.")
+    return state.lat_rad

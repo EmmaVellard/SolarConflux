@@ -7,6 +7,7 @@ from solarconflux.validation import (
     angle_to_radians,
     normalize_geometry_choices,
     validate_date_range,
+    validate_optional_latitude_tolerance_degrees,
     validate_solar_wind_speed_mps,
     validate_step,
 )
@@ -36,6 +37,17 @@ class ValidationTests(unittest.TestCase):
     def test_invalid_angle_unit_is_invalid(self):
         with self.assertRaises(ValueError):
             angle_to_radians(10, "turns", "angle")
+
+    def test_optional_latitude_tolerance_accepts_none(self):
+        self.assertIsNone(validate_optional_latitude_tolerance_degrees(None))
+
+    def test_optional_latitude_tolerance_rejects_negative_value(self):
+        with self.assertRaises(ValueError):
+            validate_optional_latitude_tolerance_degrees(-1)
+
+    def test_optional_latitude_tolerance_rejects_nonfinite_value(self):
+        with self.assertRaises(ValueError):
+            validate_optional_latitude_tolerance_degrees(float("inf"))
 
     def test_negative_arbitrary_angle_is_invalid(self):
         with self.assertRaises(ValueError):

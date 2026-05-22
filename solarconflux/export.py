@@ -19,6 +19,8 @@ CSV_COLUMNS = [
     "geometry",
     "bodies",
     "number_of_bodies",
+    "latitude_tolerance_deg",
+    "latitude_span_deg",
     "tolerance_deg",
     "cone_width_deg",
     "arbitrary_angle_deg",
@@ -49,8 +51,8 @@ def save_match(
     with csv_path.open(mode="w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
         writer.writeheader()
-        for event_id, (start, end, geometry, bodies) in enumerate(rows, start=1):
-            writer.writerow(_csv_row(event_id, start, end, geometry, bodies, parameters))
+        for event_id, (start, end, geometry, bodies, latitude_span_deg) in enumerate(rows, start=1):
+            writer.writerow(_csv_row(event_id, start, end, geometry, bodies, latitude_span_deg, parameters))
 
     return csv_path
 
@@ -88,15 +90,16 @@ def save_run_metadata(
 
 def _flatten_entries(
     matching_entries: Mapping[str, Iterable[Tuple[str, str, List[str]]]]
-) -> List[Tuple[str, str, str, List[str]]]:
-    combined: List[Tuple[str, str, str, List[str]]] = []
+) -> List[Tuple[str, str, str, List[str], Any]]:
+    combined: List[Tuple[str, str, str, List[str], Any]] = []
     for geometry, entries in matching_entries.items():
-        for start, end, bodies in entries:
-            combined.append((start, end, geometry, list(bodies)))
+        for entry in entries:
+            start, end, bodies = entry
+            combined.append((start, end, geometry, list(bodies), getattr(entry, "latitude_span_deg", "")))
     return sorted(combined, key=lambda row: row[0])
 
 
-def _output_folder_name(rows: List[Tuple[str, str, str, List[str]]]) -> str:
+def _output_folder_name(rows: List[Tuple[str, str, str, List[str], Any]]) -> str:
     if not rows:
         return "solarconflux_results"
     return f"{rows[0][0][:10]}_to_{rows[-1][1][:10]}"
@@ -108,6 +111,7 @@ def _csv_row(
     end: str,
     geometry: str,
     bodies: List[str],
+    latitude_span_deg: Any,
     parameters: Mapping[str, Any],
 ) -> Dict[str, Any]:
     duration_hours = _duration_hours(start, end)
@@ -120,6 +124,8 @@ def _csv_row(
         "geometry": geometry,
         "bodies": ";".join(bodies),
         "number_of_bodies": len(bodies),
+        "latitude_tolerance_deg": parameters.get("latitude_tolerance_deg", ""),
+        "latitude_span_deg": _format_optional_float(latitude_span_deg),
         "tolerance_deg": _parameter_degrees(parameters, "tolerance"),
         "cone_width_deg": _parameter_degrees(parameters, "cone_width"),
         "arbitrary_angle_deg": parameters.get("arbitrary_angle_degrees", ""),
@@ -141,6 +147,12 @@ def _duration_days(duration_hours: str) -> str:
     if not duration_hours:
         return ""
     return f"{float(duration_hours) / 24.0:.6g}"
+
+
+def _format_optional_float(value: Any) -> Any:
+    if value is None or value == "":
+        return ""
+    return f"{float(value):.6g}"
 
 
 def _parameter_degrees(parameters: Mapping[str, Any], key: str) -> Any:

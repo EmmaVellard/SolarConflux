@@ -12,7 +12,12 @@ from .export import save_match, save_run_metadata
 from .functions import build_run_parameters, matching_dates
 from .plotting import save_plot
 from .trajectories import get_info, get_trajectories
-from .validation import normalize_geometry_choices, validate_date_range, validate_step
+from .validation import (
+    normalize_geometry_choices,
+    validate_date_range,
+    validate_optional_latitude_tolerance_degrees,
+    validate_step,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +40,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--cone-width", type=float, default=10.0, help="Cone width in degrees.")
     parser.add_argument("--tolerance", type=float, default=10.0, help="Angular tolerance in degrees.")
+    parser.add_argument(
+        "--latitude-tolerance",
+        type=float,
+        help="Optional heliographic latitude span tolerance in degrees.",
+    )
     parser.add_argument("--arbitrary-angle", type=float, help="Arbitrary angle in degrees.")
     parser.add_argument(
         "--solar-wind-speed",
@@ -84,6 +94,7 @@ def run_from_args(args: argparse.Namespace) -> None:
     geometries = normalize_geometry_choices(args.geometries)
     validate_date_range(args.start_time, args.end_time)
     step = validate_step(args.step)
+    latitude_tolerance_deg = validate_optional_latitude_tolerance_degrees(args.latitude_tolerance)
 
     if "arbitrary" in geometries and args.arbitrary_angle is None:
         raise ValueError("--arbitrary-angle is required when using the arbitrary geometry.")
@@ -93,6 +104,7 @@ def run_from_args(args: argparse.Namespace) -> None:
         cone_width_degrees=args.cone_width,
         tolerance_degrees=args.tolerance,
         arbitrary_angle_degrees=args.arbitrary_angle,
+        latitude_tolerance_deg=latitude_tolerance_deg,
         solar_wind_speed_km_s=args.solar_wind_speed,
     )
 
@@ -109,6 +121,7 @@ def run_from_args(args: argparse.Namespace) -> None:
         cone_width=args.cone_width,
         tolerance=args.tolerance,
         arbitrary_angle=args.arbitrary_angle,
+        latitude_tolerance_deg=latitude_tolerance_deg,
         u_sw=args.solar_wind_speed * 1000.0,
         angle_unit="deg",
         verbose=args.verbose,
@@ -150,6 +163,11 @@ def run_interactive() -> int:
     geometries = input("Enter alignment types (comma-separated): ").strip()
 
     normalized_geometries = normalize_geometry_choices(geometries)
+    latitude_choice = input("\nApply an optional latitude filter? y/n (default: no): ").strip().lower()
+    latitude_tolerance = None
+    if latitude_choice == "y":
+        latitude_tolerance = float(input("Enter latitude tolerance in degrees: ").strip())
+
     arbitrary_angle = None
     if "arbitrary" in normalized_geometries:
         arbitrary_angle = float(input("Enter the desired angle in degrees: ").strip())
@@ -171,6 +189,7 @@ def run_interactive() -> int:
         geometries=geometries,
         cone_width=10.0,
         tolerance=10.0,
+        latitude_tolerance=latitude_tolerance,
         arbitrary_angle=arbitrary_angle,
         solar_wind_speed=solar_wind_speed,
         output_dir=output_dir,

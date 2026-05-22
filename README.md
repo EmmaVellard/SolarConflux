@@ -10,6 +10,7 @@ It is designed as a transparent scientific screening tool: clear inputs, explici
 - Transform trajectories to a heliocentric frame for alignment screening.
 - Detect opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker configurations.
 - Use circular longitude comparisons so 0/360 degree edge cases are handled correctly.
+- Optionally require matched bodies to stay within a simple heliographic latitude span.
 - Save event CSV files, run metadata JSON, and optional polar plots.
 - Run from Python or from a reproducible command-line interface.
 
@@ -48,6 +49,7 @@ solarconflux \
   --geometries opposition,quadrature,cone \
   --cone-width 10 \
   --tolerance 10 \
+  --latitude-tolerance 5 \
   --output-dir results \
   --save-plots \
   --verbose
@@ -65,7 +67,7 @@ solarconflux \
   --output-dir results
 ```
 
-CLI angle options are in degrees. Solar wind speed is in km/s.
+CLI angle options, including `--latitude-tolerance`, are in degrees. Solar wind speed is in km/s. Latitude filtering is optional; omitting it preserves longitude-based matching behavior.
 
 ## Python Quickstart
 
@@ -81,6 +83,7 @@ matches = matching_dates(
     trajectories,
     cone_width=10,
     tolerance=10,
+    latitude_tolerance_deg=5,
     arbitrary_angle=30,
     angle_unit="deg",
 )
@@ -88,7 +91,7 @@ matches = matching_dates(
 save_match(matches, "results")
 ```
 
-Public angle inputs default to degrees. The lower-level `Geometry` class uses radians internally, and `matching_dates(..., angle_unit="rad")` is available for explicit radian inputs.
+Public angle inputs default to degrees. The optional `latitude_tolerance_deg` parameter is also in degrees. The lower-level `Geometry` class uses radians internally, and `matching_dates(..., angle_unit="rad")` is available for explicit radian inputs.
 
 ## Outputs
 
@@ -96,9 +99,9 @@ SolarConflux writes outputs into a date-derived folder such as `results/2025-01-
 
 CSV files use a stable column order:
 
-| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 10 | 10 |  | 400 |
+| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | latitude_tolerance_deg | latitude_span_deg | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 5 | 4 | 10 | 10 |  | 400 |
 
 No-match runs still write a header-only CSV so automated workflows have a predictable artifact.
 
@@ -117,6 +120,20 @@ Optional polar plots show event windows with clearer titles, body labels, radial
 
 Supported bodies currently include BepiColombo, Solar Orbiter, PSP, Stereo-A, Juice, Maven, Messenger, Juno, SDO, SOHO, ACE, Venus, Earth, Mars, Jupiter, and Sun.
 
+## Optional Latitude Filtering
+
+By default, SolarConflux applies no latitude filter. Longitude-based geometry matches behave as before.
+
+Set `--latitude-tolerance` on the CLI, or `latitude_tolerance_deg` in Python, to require each candidate group to satisfy:
+
+```text
+max(latitude_deg) - min(latitude_deg) <= latitude_tolerance_deg
+```
+
+For two bodies, this is equivalent to `abs(lat1_deg - lat2_deg) <= latitude_tolerance_deg`.
+
+This is a simple heliographic latitude proximity screen applied after the existing geometry criterion passes. It does not change Parker spiral physics, source-surface assumptions, sign convention, solar wind speed handling, or the longitude-based geometry definitions. For `parker` and `coneparker`, the existing Parker latitude check is preserved; the optional latitude filter is an additional group-level screen when requested.
+
 ## Scientific Assumptions And Limitations
 
 SolarConflux is an approximate geometry and connectivity screening tool. It is not a full heliospheric MHD model.
@@ -126,6 +143,7 @@ Important assumptions:
 - Coordinates are compared in a heliocentric spherical frame after trajectory retrieval is transformed to Heliocentric Inertial coordinates.
 - Opposition, quadrature, cone, and arbitrary-angle modes compare heliolongitude only.
 - All longitude comparisons use circular angular separation.
+- Optional latitude filtering uses a simple max-minus-min latitude span in degrees.
 - Parker spiral matching estimates a source-surface footpoint longitude using a ballistic backmapping approximation:
 
 ```text
@@ -143,6 +161,7 @@ Known limitations:
 
 - Horizons queries require network access and valid coverage for each body.
 - Event detection assumes all trajectories share the same number of time steps.
+- Optional latitude filtering requires finite latitude values for all bodies in a candidate group.
 - Plots are intended for quick inspection and may need manual refinement for publication figures.
 
 ## Testing

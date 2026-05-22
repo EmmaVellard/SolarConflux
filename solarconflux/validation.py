@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 from datetime import datetime
-from typing import Iterable, List, Union
+from typing import Iterable, List, Optional, Union
 
 from .angles import degrees_to_radians
 
@@ -137,3 +137,13 @@ def validate_solar_wind_speed_mps(speed_mps: object) -> float:
     if not math.isfinite(speed) or speed <= 0:
         raise ValueError("Solar wind speed must be positive and finite.")
     return speed
+
+
+def validate_optional_latitude_tolerance_degrees(value: object) -> Optional[float]:
+    """Validate an optional latitude tolerance in public degree units."""
+    if value is None:
+        return None
+    tolerance = float(value)
+    if not math.isfinite(tolerance) or tolerance < 0:
+        raise ValueError("latitude_tolerance_deg must be finite and non-negative.")
+    return tolerance
