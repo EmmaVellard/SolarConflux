@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="solarconflux",
-    version="0.1",
-    description="This module defines the `Geometry` class, which analyzes the spatial relationships between spacecraft and celestial bodies using their trajectories. It checks for specific geometric alignments such as Opposition, Cone, Quadrature, Arbitrary Angle, and Parker Spiral.",
+    version="0.1.0",
+    description="Approximate heliocentric trajectory geometry and Parker-spiral alignment screening for coordinated solar observations.",
     author="Emma Vellard",
     author_email="emma.vellard@outlook.fr",
     url="https://github.com/EmmaVellard/SolarConflux",
@@ -17,4 +17,5 @@ setup(
         "astroquery",
     ],
     include_package_data=True,
+    entry_points={"console_scripts": ["solarconflux=solarconflux.cli:main"]},
 )

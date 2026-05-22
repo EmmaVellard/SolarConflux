@@ -1,133 +1,189 @@
-<h1 align="center">🛰️ SolarConflux 🛰️</h1>
+# SolarConflux
 
-## Overview
+SolarConflux is a Python tool for retrieving heliocentric trajectories of spacecraft and planets and detecting approximate geometric alignments relevant to coordinated solar observations.
 
-**SolarConflux** is a Python module for retrieving and analyzing the trajectories of multiple spacecraft and planets in the heliocentric reference frame. It detects specific geometric alignments between bodies, such as opposition, quadrature, Parker spiral, and more — valuable for planning coordinated solar observations or contextualizing space weather events.
+It currently supports opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker alignment screening.
 
-**If you use this tool in your work, please consider citing the repository or mentioning the author.**
+If you use this tool in scientific work, please cite or acknowledge the repository and author.
 
----
+## Installation
 
-## 🔭 Geometries Definition
+From a local checkout:
 
-SolarConflux supports the detection of the following geometric alignments:
+```bash
+python -m pip install .
+```
 
-- **Opposition**: One spacecraft or planet is on the opposite side of the Sun from another, forming a object1-Sun–object2 alignment with an angle ≈ 180°.
-  
-- **Quadrature**: The angle between two objects as seen from the Sun is ≈ 90°, corresponding to a perpendicular configuration.
-  
-- **Cone**: Two or more spacecraft lie within a 10° angular separation as seen from the Sun. 
+For development and tests:
 
-- **Arbitrary**: Allows for custom angle detection between any pair of objects as seen from the Sun, useful for specific science use cases (e.g., partial alignments).
+```bash
+python -m pip install ".[dev]"
+```
 
-- **Parker Spiral**: Alignment based on the expected parker spiral trajectory of the solar wind originating from a source region of the Sun.
+Trajectory retrieval requires the runtime scientific dependencies declared by the package: SunPy, Astropy, Astroquery, NumPy, and Matplotlib. The unit tests use synthetic trajectories and do not require live Horizons access.
 
-- **Cone Parker**: Combinaison of the Cone and Parker alignements. 
+## Quickstart: CLI
 
----
+Interactive mode:
 
-## 🚀 Main Features
+```bash
+solarconflux --interactive
+```
 
-1. **Trajectory Retrieval**: Fetches ephemerides from JPL Horizons using SunPy/Astropy.
-2. **Coordinate Transformation**: Converts to the Heliocentric Inertial (HCI) frame.
-3. **Alignment Detection**: Finds alignments between any combination of objects.
-4. **Customizable Parameters**: Set custom angles and solar wind speeds.
-5. **Export & Visualization**: Save results in `.csv` and visualize them in polar plots.
+Reproducible non-interactive run:
 
----
+```bash
+solarconflux \
+  --bodies Earth,Venus,"Solar Orbiter" \
+  --start-time "2025-01-01" \
+  --end-time "2025-03-01" \
+  --step 60m \
+  --geometries opposition,quadrature,cone \
+  --cone-width 10 \
+  --tolerance 10 \
+  --output-dir results \
+  --no-plots \
+  --verbose
+```
 
-## 🧩 Modules Used
+Parker spiral example:
 
-- `SunPy` / `Astropy` / `Astroquery`: For coordinate handling and trajectory querying.
-- `Matplotlib`: For trajectory plotting in polar view.
-- `CSV` / `OS`: For saving and managing output data.
+```bash
+solarconflux \
+  --bodies Earth,"Solar Orbiter" \
+  --start-time "2025-01-01" \
+  --end-time "2025-02-01" \
+  --geometries parker,coneparker \
+  --solar-wind-speed 400 \
+  --output-dir results
+```
 
----
+CLI angle options are in degrees. Solar wind speed is in km/s.
 
-## 📥 Inputs
-
-- A list of spacecraft and/or planets.
-- Time range and time step for analysis.
-- Geometrical configuration(s) to detect.
-- Optional parameters:
-  - Arbitrary angle (for `arbitrary` mode, in deg).
-  - Solar wind speed (for `parker` mode, in km/s).
-
-## 📤 Outputs
-
-- A `.csv` file listing all detected alignment times and involved bodies.
-- Polar plots showing spacecraft trajectories and relative positions.
-
----
-
-## 🧵 Example
+## Python API Example
 
 ```python
-from solarconflux import get_trajectories, matching_dates, save_match, save_plot
+from solarconflux import get_trajectories, matching_dates, save_match
 
-# Define bodies
-body_list = ['BepiColombo', 'Solar Orbiter', 'PSP', 'Stereo-A', 'Earth', 'Mars', 'Jupiter']
+body_list = ["Earth", "Venus", "Solar Orbiter"]
+trajectories = get_trajectories(body_list, "2025-01-01", "2025-03-01", "60m")
 
-# Time window
-start_time = '2020-09-01 09:00'
-end_time = '2020-12-31 23:00'
-step = '60m'
+matches = matching_dates(
+    ["cone", "opposition", "quadrature", "arbitrary"],
+    body_list,
+    trajectories,
+    cone_width=10,
+    tolerance=10,
+    arbitrary_angle=30,
+    angle_unit="deg",
+)
 
-# Get trajectories
-trajectories = get_trajectories(body_list, start_time, end_time, step)
-
-# Define alignment types
-geometry_choices = ['cone', 'opposition', 'quadrature', 'arbitrary', 'parker', 'coneparker']
-
-# Parameters
-arbitrary_angle = 30  # degrees
-u_sw = 400e3          # solar wind speed in m/s
-
-# Detect alignments
-match = matching_dates(geometry_choices, body_list, trajectories,
-                       arbitrary_angle=arbitrary_angle, u_sw=u_sw)
-
-# Save results
-save_match(match)
-save_plot(match, trajectories)
+save_match(matches, "results")
 ```
----
 
-## 🖼️ Example Outputs
+The lower-level `Geometry` class uses radians internally. The public `matching_dates` helper accepts degrees by default and supports `angle_unit="rad"` for explicit radian inputs.
 
-After running the example script, SolarConflux generates the following outputs:
+## Supported Bodies
 
-### CSV Output
+Supported body names are currently:
 
-<p align="center">
-  <img src="images/csvresult.png" alt="CSV Resulting Document" width="800"/>
-</p>
+- BepiColombo
+- Solar Orbiter
+- PSP
+- Stereo-A
+- Juice
+- Maven
+- Messenger
+- Juno
+- SDO
+- SOHO
+- ACE
+- Venus
+- Earth
+- Mars
+- Jupiter
+- Sun
 
-A `.csv` file containing timestamps and spacecraft involved in detected alignments.
+SolarConflux validates names before querying Horizons and raises a clear error for unsupported bodies.
 
+## Supported Geometries
 
-### Cone Alignment Plot
+- `opposition`: heliolongitude separation close to 180 degrees.
+- `quadrature`: heliolongitude separation close to 90 degrees. A 270 degree oriented configuration is treated as the same unsigned circular separation.
+- `cone`: heliolongitude separation within a configurable cone width.
+- `arbitrary`: unsigned circular heliolongitude separation close to a user-specified angle. Angles above 180 degrees are interpreted by their equivalent smaller circular separation.
+- `parker`: approximate matching of Parker spiral source-surface footpoint longitude, plus a latitude tolerance.
+- `coneparker`: cone alignment and Parker footpoint matching together.
 
-<p align="center">
-  <img src="images/cone.png" alt="Cone Alignment"/>
-</p>
+All longitude comparisons use circular angle wrapping, so cases near 0/360 degrees are handled explicitly.
 
-Visualization of a **cone alignment** where multiple spacecraft lie within a narrow angular sector as seen from the Sun.
+## Scientific Assumptions And Limitations
 
+SolarConflux is an approximate geometry and connectivity screening tool. It is not a full heliospheric MHD model.
 
-### Parker Spiral Alignment Plot
+Important assumptions:
 
-<p align="center">
-  <img src="images/parker.png" alt="Parker Spiral Alignment"/>
-</p>
+- Coordinates are compared in a heliocentric spherical frame after trajectory retrieval is transformed to Heliocentric Inertial coordinates.
+- Opposition, quadrature, cone, and arbitrary-angle modes compare heliolongitude only.
+- Parker spiral matching estimates a source-surface footpoint longitude using a ballistic backmapping approximation:
 
-Representation of a **Parker spiral alignment**, showing spacecraft aligned along the solar wind’s expected trajectory.
+```text
+phi_source = phi_body + omega_sun * (r_body - r_source_surface) / u_sw
+```
 
+- The default solar rotation period is 25.38 days.
+- The default source surface radius is 2.5 solar radii.
+- The default Parker footpoint tolerance is 5 degrees.
+- Latitude matching in Parker modes uses a simple latitude tolerance, not a field-line or plasma model.
 
-## 🧑‍🚀 Credits
+Known limitations:
 
-**Author**: Emma Vellard  
-SolarConflux was developed as part of a research tool for studying coordinated solar observations using spacecraft alignments.  
-If you use this tool in your work, please consider citing the repository or mentioning the author.
+- Horizons queries require network access and valid coverage for each body.
+- Event detection assumes all trajectories share the same number of time steps.
+- Plots are intended for quick inspection and may need manual refinement for publication figures.
+- The Parker sign convention and rotation convention should be reviewed for each science use case before publication-quality interpretation.
 
-**License**: This project is licensed under the [MIT License](LICENSE).
+## Outputs
+
+SolarConflux writes a CSV file in a date-derived output folder. The CSV includes:
+
+- start time;
+- end time;
+- duration in hours;
+- geometry;
+- bodies involved;
+- number of bodies;
+- tolerance;
+- cone width;
+- arbitrary angle;
+- solar wind speed.
+
+The CLI also writes `run_metadata.json` with input parameters, package version, body list, Horizons IDs, and scientific assumptions.
+
+## Testing
+
+Run the offline test suite:
+
+```bash
+python -m unittest discover -s tests
+```
+
+If pytest is installed, the same tests are pytest-compatible:
+
+```bash
+pytest
+```
+
+Live Horizons integration tests are skipped by default. Enable them explicitly:
+
+```bash
+SOLARCONFLUX_RUN_INTEGRATION=1 pytest -m integration
+```
+
+## Credits
+
+Author: Emma Vellard
+
+SolarConflux was developed as a research tool for studying coordinated solar observations using spacecraft alignments.
+
+License: MIT. See [LICENSE](LICENSE).
