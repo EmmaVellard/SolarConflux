@@ -11,9 +11,11 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional,
 from .angles import radians_to_degrees
 
 CSV_COLUMNS = [
+    "event_id",
     "start_time",
     "end_time",
     "duration_hours",
+    "duration_days",
     "geometry",
     "bodies",
     "number_of_bodies",
@@ -47,8 +49,8 @@ def save_match(
     with csv_path.open(mode="w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
         writer.writeheader()
-        for start, end, geometry, bodies in rows:
-            writer.writerow(_csv_row(start, end, geometry, bodies, parameters))
+        for event_id, (start, end, geometry, bodies) in enumerate(rows, start=1):
+            writer.writerow(_csv_row(event_id, start, end, geometry, bodies, parameters))
 
     return csv_path
 
@@ -59,15 +61,18 @@ def save_run_metadata(
     body_list: Iterable[str],
     horizons_ids: Optional[Mapping[str, Any]] = None,
     package_version: str = "0.1.0",
+    output_files: Optional[Iterable[object]] = None,
 ) -> Path:
     """Save a JSON metadata file describing a SolarConflux run."""
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=True)
+    generated_output_filenames = sorted(Path(file_path).name for file_path in output_files or [])
     metadata: MutableMapping[str, Any] = {
         "package_version": package_version,
         "input_parameters": dict(parameters),
         "body_list": list(body_list),
         "horizons_ids": dict(horizons_ids or {}),
+        "generated_output_filenames": generated_output_filenames,
         "assumptions": [
             "Heliocentric geometries use spherical longitudes in the selected frame.",
             "Longitude comparisons use circular angular separation.",
@@ -98,16 +103,20 @@ def _output_folder_name(rows: List[Tuple[str, str, str, List[str]]]) -> str:
 
 
 def _csv_row(
+    event_id: int,
     start: str,
     end: str,
     geometry: str,
     bodies: List[str],
     parameters: Mapping[str, Any],
 ) -> Dict[str, Any]:
+    duration_hours = _duration_hours(start, end)
     return {
+        "event_id": event_id,
         "start_time": start,
         "end_time": end,
-        "duration_hours": _duration_hours(start, end),
+        "duration_hours": duration_hours,
+        "duration_days": _duration_days(duration_hours),
         "geometry": geometry,
         "bodies": ";".join(bodies),
         "number_of_bodies": len(bodies),
@@ -126,6 +135,12 @@ def _duration_hours(start: str, end: str) -> str:
         return ""
     duration = end_dt - start_dt
     return f"{duration.total_seconds() / 3600.0:.6g}"
+
+
+def _duration_days(duration_hours: str) -> str:
+    if not duration_hours:
+        return ""
+    return f"{float(duration_hours) / 24.0:.6g}"
 
 
 def _parameter_degrees(parameters: Mapping[str, Any], key: str) -> Any:

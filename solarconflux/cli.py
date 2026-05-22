@@ -115,16 +115,19 @@ def run_from_args(args: argparse.Namespace) -> None:
     )
 
     csv_path = save_match(matches, output_dir, parameters=parameters)
+    output_files = [csv_path]
+
+    if args.save_plots:
+        output_files.extend(save_plot(matches, trajectories, output_dir))
+
     save_run_metadata(
         csv_path.parent,
         parameters={**parameters, "step": step, "geometries": geometries},
         body_list=bodies,
         horizons_ids=horizons_ids_for_bodies(bodies),
         package_version=__version__,
+        output_files=output_files,
     )
-
-    if args.save_plots:
-        save_plot(matches, trajectories, output_dir)
 
     if args.verbose:
         print(f"Saved results to {csv_path.parent}")

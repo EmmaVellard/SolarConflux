@@ -1,10 +1,17 @@
 # SolarConflux
 
-SolarConflux is a Python tool for retrieving heliocentric trajectories of spacecraft and planets and detecting approximate geometric alignments relevant to coordinated solar observations.
+SolarConflux retrieves heliocentric trajectories for spacecraft and planets and screens them for approximate geometric alignments useful in coordinated solar-observation planning.
 
-It currently supports opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker alignment screening.
+It is designed as a transparent scientific screening tool: clear inputs, explicit assumptions, reproducible CSV outputs, and lightweight polar plots.
 
-If you use this tool in scientific work, please cite or acknowledge the repository and author.
+## Features
+
+- Fetch spacecraft and planetary ephemerides through SunPy/JPL Horizons.
+- Transform trajectories to a heliocentric frame for alignment screening.
+- Detect opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker configurations.
+- Use circular longitude comparisons so 0/360 degree edge cases are handled correctly.
+- Save event CSV files, run metadata JSON, and optional polar plots.
+- Run from Python or from a reproducible command-line interface.
 
 ## Installation
 
@@ -20,9 +27,9 @@ For development and tests:
 python -m pip install ".[dev]"
 ```
 
-Trajectory retrieval requires the runtime scientific dependencies declared by the package: SunPy, Astropy, Astroquery, NumPy, and Matplotlib. The unit tests use synthetic trajectories and do not require live Horizons access.
+Trajectory retrieval requires the runtime scientific dependencies declared by the package: SunPy, Astropy, Astroquery, NumPy, and Matplotlib. The offline unit tests use synthetic trajectories and do not require live Horizons access.
 
-## Quickstart: CLI
+## CLI Quickstart
 
 Interactive mode:
 
@@ -42,11 +49,11 @@ solarconflux \
   --cone-width 10 \
   --tolerance 10 \
   --output-dir results \
-  --no-plots \
+  --save-plots \
   --verbose
 ```
 
-Parker spiral example:
+Parker spiral screening:
 
 ```bash
 solarconflux \
@@ -60,7 +67,7 @@ solarconflux \
 
 CLI angle options are in degrees. Solar wind speed is in km/s.
 
-## Python API Example
+## Python Quickstart
 
 ```python
 from solarconflux import get_trajectories, matching_dates, save_match
@@ -81,30 +88,23 @@ matches = matching_dates(
 save_match(matches, "results")
 ```
 
-The lower-level `Geometry` class uses radians internally. The public `matching_dates` helper accepts degrees by default and supports `angle_unit="rad"` for explicit radian inputs.
+Public angle inputs default to degrees. The lower-level `Geometry` class uses radians internally, and `matching_dates(..., angle_unit="rad")` is available for explicit radian inputs.
 
-## Supported Bodies
+## Outputs
 
-Supported body names are currently:
+SolarConflux writes outputs into a date-derived folder such as `results/2025-01-01_to_2025-03-01/`.
 
-- BepiColombo
-- Solar Orbiter
-- PSP
-- Stereo-A
-- Juice
-- Maven
-- Messenger
-- Juno
-- SDO
-- SOHO
-- ACE
-- Venus
-- Earth
-- Mars
-- Jupiter
-- Sun
+CSV files use a stable column order:
 
-SolarConflux validates names before querying Horizons and raises a clear error for unsupported bodies.
+| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 10 | 10 |  | 400 |
+
+No-match runs still write a header-only CSV so automated workflows have a predictable artifact.
+
+`run_metadata.json` records package version, input parameters, body list, Horizons IDs, generated output filenames, and the assumptions used for the run.
+
+Optional polar plots show event windows with clearer titles, body labels, radial units, and visually distinct event markers. PNG is the default plot format; the plotting helper can also save other Matplotlib-supported formats such as PDF.
 
 ## Supported Geometries
 
@@ -115,7 +115,7 @@ SolarConflux validates names before querying Horizons and raises a clear error f
 - `parker`: approximate matching of Parker spiral source-surface footpoint longitude, plus a latitude tolerance.
 - `coneparker`: cone alignment and Parker footpoint matching together.
 
-All longitude comparisons use circular angle wrapping, so cases near 0/360 degrees are handled explicitly.
+Supported bodies currently include BepiColombo, Solar Orbiter, PSP, Stereo-A, Juice, Maven, Messenger, Juno, SDO, SOHO, ACE, Venus, Earth, Mars, Jupiter, and Sun.
 
 ## Scientific Assumptions And Limitations
 
@@ -125,6 +125,7 @@ Important assumptions:
 
 - Coordinates are compared in a heliocentric spherical frame after trajectory retrieval is transformed to Heliocentric Inertial coordinates.
 - Opposition, quadrature, cone, and arbitrary-angle modes compare heliolongitude only.
+- All longitude comparisons use circular angular separation.
 - Parker spiral matching estimates a source-surface footpoint longitude using a ballistic backmapping approximation:
 
 ```text
@@ -136,29 +137,13 @@ phi_source = phi_body + omega_sun * (r_body - r_source_surface) / u_sw
 - The default Parker footpoint tolerance is 5 degrees.
 - Latitude matching in Parker modes uses a simple latitude tolerance, not a field-line or plasma model.
 
+Parker spiral behavior is intentionally documented as approximate and should receive scientific review for sign convention, rotation convention, source-surface assumptions, and latitude treatment before publication-quality interpretation.
+
 Known limitations:
 
 - Horizons queries require network access and valid coverage for each body.
 - Event detection assumes all trajectories share the same number of time steps.
 - Plots are intended for quick inspection and may need manual refinement for publication figures.
-- The Parker sign convention and rotation convention should be reviewed for each science use case before publication-quality interpretation.
-
-## Outputs
-
-SolarConflux writes a CSV file in a date-derived output folder. The CSV includes:
-
-- start time;
-- end time;
-- duration in hours;
-- geometry;
-- bodies involved;
-- number of bodies;
-- tolerance;
-- cone width;
-- arbitrary angle;
-- solar wind speed.
-
-The CLI also writes `run_metadata.json` with input parameters, package version, body list, Horizons IDs, and scientific assumptions.
 
 ## Testing
 
@@ -179,6 +164,14 @@ Live Horizons integration tests are skipped by default. Enable them explicitly:
 ```bash
 SOLARCONFLUX_RUN_INTEGRATION=1 pytest -m integration
 ```
+
+## Roadmap
+
+- Validate live Horizons retrieval across each supported body and date range.
+- Add a small gallery of real example outputs.
+- Review Parker spiral sign convention and latitude tolerance with domain experts.
+- Add optional controls for plot format and plot density in the CLI.
+- Improve packaging metadata for publication workflows.
 
 ## Credits
 
