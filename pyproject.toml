@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,25 +9,45 @@ description = "Approximate heliocentric trajectory geometry and Parker-spiral al
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "Emma Vellard", email = "emma.vellard@outlook.fr" }]
+authors = [
+  { name = "Emma Vellard", email = "emma.vellard@outlook.fr" }
+]
+keywords = [
+  "solar-physics",
+  "heliophysics",
+  "spacecraft",
+  "ephemerides",
+  "jpl-horizons",
+  "parker-spiral",
+  "research-software"
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Astronomy"
+]
+
 dependencies = [
-    "numpy",
-    "matplotlib",
-    "astropy",
-    "sunpy",
-    "astroquery",
+  "numpy",
+  "matplotlib",
+  "astropy",
+  "sunpy",
+  "astroquery"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
+  "pytest"
 ]
 
 [project.scripts]
 solarconflux = "solarconflux.cli:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-markers = [
-    "integration: tests requiring live Horizons/network access",
-]
+[project.urls]
+Homepage = "https://github.com/EmmaVellard/SolarConflux"
+Repository = "https://github.com/EmmaVellard/SolarConflux"
+Issues = "https://github.com/EmmaVellard/SolarConflux/issues"
