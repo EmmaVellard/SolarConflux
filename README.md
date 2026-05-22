@@ -4,7 +4,9 @@
   <img src="https://img.shields.io/badge/python-%3E%3D3.9-blue" alt="Python >= 3.9">
   <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT">
   <img src="https://img.shields.io/badge/status-research%20prototype-orange" alt="Status: research prototype">
-  <img src="https://img.shields.io/badge/tests-unittest%20%7C%20pytest--compatible-lightgrey" alt="Tests">
+  <a href="https://github.com/EmmaVellard/SolarConflux/actions/workflows/tests.yml">
+    <img src="https://github.com/EmmaVellard/SolarConflux/actions/workflows/tests.yml/badge.svg" alt="Tests">
+  </a>
 </p>
 
 **SolarConflux** is a Python research tool for screening heliocentric spacecraft and planetary ephemerides for approximate geometric and Parker-spiral alignments relevant to coordinated solar observations.
