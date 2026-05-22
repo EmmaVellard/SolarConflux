@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "SolarConflux: Heliocentric geometry and Parker-spiral alignment screening for coordinated solar observations"
+message: "If you use SolarConflux in your work, please cite it using this metadata."
+type: software
+authors:
+  - family-names: Vellard
+    given-names: Emma
+repository-code: "https://github.com/EmmaVellard/SolarConflux"
+license: MIT
+version: 0.1.0
