@@ -1,34 +1,58 @@
-# SolarConflux
+<h1 align="center">🛰️ SolarConflux 🛰️</h1>
 
-SolarConflux retrieves heliocentric trajectories for spacecraft and planets and screens them for approximate geometric alignments useful in coordinated solar-observation planning.
+![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-yellow)
+![Status](https://img.shields.io/badge/status-research%20prototype-orange)
+![Tests](https://img.shields.io/badge/tests-unittest%20%7C%20pytest--compatible-lightgrey)
 
-It is designed as a transparent scientific screening tool: clear inputs, explicit assumptions, reproducible CSV outputs, and lightweight polar plots.
+**SolarConflux** is a Python research tool for screening heliocentric spacecraft and planetary ephemerides for approximate geometric and Parker-spiral alignments relevant to coordinated solar observations.
+
+The tool is designed for transparent scientific screening: clear inputs, explicit assumptions, reproducible CSV outputs, run metadata, and lightweight polar plots.
+
+> SolarConflux is intended for observation-planning support and exploratory scientific analysis. It is not a full heliospheric MHD model and should not be used as a validated connectivity model without further scientific review.
+
+## Scientific Motivation
+
+SolarConflux was developed to help identify time intervals when spacecraft and planetary bodies occupy geometries that may be useful for coordinated solar and heliospheric observations.
+
+Such configurations can support the study of solar wind propagation, multi-spacecraft context, and observation opportunities involving missions and bodies such as Solar Orbiter, Parker Solar Probe, BepiColombo, STEREO-A, JUICE, Earth, Venus, Mars, and Jupiter.
+
+The goal is not to replace detailed heliospheric modeling, but to provide a transparent first-pass screening tool for finding potentially interesting time windows.
 
 ## Features
 
-- Fetch spacecraft and planetary ephemerides through SunPy/JPL Horizons.
+- Fetch spacecraft and planetary ephemerides through SunPy, Astropy, Astroquery, and JPL Horizons.
 - Transform trajectories to a heliocentric frame for alignment screening.
-- Detect opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker configurations.
-- Use circular longitude comparisons so 0/360 degree edge cases are handled correctly.
-- Optionally require matched bodies to stay within a simple heliographic latitude span.
-- Save event CSV files, run metadata JSON, and optional polar plots.
-- Run from Python or from a reproducible command-line interface.
+- Detect approximate opposition, quadrature, cone, arbitrary-angle, Parker spiral, and cone-Parker configurations.
+- Handle circular longitude comparisons, including 0/360 degree wraparound cases.
+- Optionally require matched bodies to remain within a simple heliographic latitude span.
+- Save event CSV files with stable column names.
+- Save `run_metadata.json` files describing inputs, assumptions, Horizons identifiers, and generated outputs.
+- Generate optional polar plots for quick visual inspection.
+- Run from either a command-line interface or a Python workflow.
+- Include offline synthetic tests for geometry behavior.
 
 ## Installation
 
 From a local checkout:
 
 ```bash
+git clone https://github.com/EmmaVellard/SolarConflux.git
+cd SolarConflux
 python -m pip install .
 ```
 
-For development and tests:
+SolarConflux requires Python 3.9 or later.
 
-```bash
-python -m pip install ".[dev]"
-```
+Runtime dependencies include:
 
-Trajectory retrieval requires the runtime scientific dependencies declared by the package: SunPy, Astropy, Astroquery, NumPy, and Matplotlib. The offline unit tests use synthetic trajectories and do not require live Horizons access.
+- NumPy
+- Matplotlib
+- Astropy
+- SunPy
+- Astroquery
+
+Trajectory retrieval requires network access and valid coverage from JPL Horizons.
 
 ## CLI Quickstart
 
@@ -62,12 +86,28 @@ solarconflux \
   --bodies Earth,"Solar Orbiter" \
   --start-time "2025-01-01" \
   --end-time "2025-02-01" \
+  --step 60m \
   --geometries parker,coneparker \
   --solar-wind-speed 400 \
+  --output-dir results \
+  --save-plots
+```
+
+Arbitrary-angle screening:
+
+```bash
+solarconflux \
+  --bodies Earth,Venus,Mars \
+  --start-time "2025-01-01" \
+  --end-time "2025-03-01" \
+  --step 60m \
+  --geometries arbitrary \
+  --arbitrary-angle 30 \
+  --tolerance 10 \
   --output-dir results
 ```
 
-CLI angle options, including `--latitude-tolerance`, are in degrees. Solar wind speed is in km/s. Latitude filtering is optional; omitting it preserves longitude-based matching behavior.
+CLI angle options are given in degrees. Solar wind speed is given in km/s.
 
 ## Python Quickstart
 
@@ -75,7 +115,13 @@ CLI angle options, including `--latitude-tolerance`, are in degrees. Solar wind 
 from solarconflux import get_trajectories, matching_dates, save_match
 
 body_list = ["Earth", "Venus", "Solar Orbiter"]
-trajectories = get_trajectories(body_list, "2025-01-01", "2025-03-01", "60m")
+
+trajectories = get_trajectories(
+    body_list,
+    "2025-01-01",
+    "2025-03-01",
+    "60m",
+)
 
 matches = matching_dates(
     ["cone", "opposition", "quadrature", "arbitrary"],
@@ -91,78 +137,177 @@ matches = matching_dates(
 save_match(matches, "results")
 ```
 
-Public angle inputs default to degrees. The optional `latitude_tolerance_deg` parameter is also in degrees. The lower-level `Geometry` class uses radians internally, and `matching_dates(..., angle_unit="rad")` is available for explicit radian inputs.
+Public angle inputs default to degrees. The lower-level geometry implementation uses radians internally.
 
-## Outputs
+## Method Summary
 
-SolarConflux writes outputs into a date-derived folder such as `results/2025-01-01_to_2025-03-01/`.
+For each selected body and time step, SolarConflux retrieves ephemerides and represents trajectories in a heliocentric spherical frame. The tool then screens candidate time windows using circular angular separation in heliolongitude.
 
-CSV files use a stable column order:
-
-| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | latitude_tolerance_deg | latitude_span_deg | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 5 | 4 | 10 | 10 |  | 400 |
-
-No-match runs still write a header-only CSV so automated workflows have a predictable artifact.
-
-`run_metadata.json` records package version, input parameters, body list, Horizons IDs, generated output filenames, and the assumptions used for the run.
-
-Optional polar plots show event windows with clearer titles, body labels, radial units, and visually distinct event markers. PNG is the default plot format; the plotting helper can also save other Matplotlib-supported formats such as PDF.
-
-## Supported Geometries
-
-- `opposition`: heliolongitude separation close to 180 degrees.
-- `quadrature`: heliolongitude separation close to 90 degrees. A 270 degree oriented configuration is treated as the same unsigned circular separation.
-- `cone`: heliolongitude separation within a configurable cone width.
-- `arbitrary`: unsigned circular heliolongitude separation close to a user-specified angle. Angles above 180 degrees are interpreted by their equivalent smaller circular separation.
-- `parker`: approximate matching of Parker spiral source-surface footpoint longitude, plus a latitude tolerance.
-- `coneparker`: cone alignment and Parker footpoint matching together.
-
-Supported bodies currently include BepiColombo, Solar Orbiter, PSP, Stereo-A, Juice, Maven, Messenger, Juno, SDO, SOHO, ACE, Venus, Earth, Mars, Jupiter, and Sun.
-
-## Optional Latitude Filtering
-
-By default, SolarConflux applies no latitude filter. Longitude-based geometry matches behave as before.
-
-Set `--latitude-tolerance` on the CLI, or `latitude_tolerance_deg` in Python, to require each candidate group to satisfy:
-
-```text
-max(latitude_deg) - min(latitude_deg) <= latitude_tolerance_deg
-```
-
-For two bodies, this is equivalent to `abs(lat1_deg - lat2_deg) <= latitude_tolerance_deg`.
-
-This is a simple heliographic latitude proximity screen applied after the existing geometry criterion passes. It does not change Parker spiral physics, source-surface assumptions, sign convention, solar wind speed handling, or the longitude-based geometry definitions. For `parker` and `coneparker`, the existing Parker latitude check is preserved; the optional latitude filter is an additional group-level screen when requested.
-
-## Scientific Assumptions And Limitations
-
-SolarConflux is an approximate geometry and connectivity screening tool. It is not a full heliospheric MHD model.
-
-Important assumptions:
-
-- Coordinates are compared in a heliocentric spherical frame after trajectory retrieval is transformed to Heliocentric Inertial coordinates.
-- Opposition, quadrature, cone, and arbitrary-angle modes compare heliolongitude only.
-- All longitude comparisons use circular angular separation.
-- Optional latitude filtering uses a simple max-minus-min latitude span in degrees.
-- Parker spiral matching estimates a source-surface footpoint longitude using a ballistic backmapping approximation:
+Parker spiral modes use a simplified ballistic backmapping approximation from the body longitude to an estimated source-surface footpoint longitude:
 
 ```text
 phi_source = phi_body + omega_sun * (r_body - r_source_surface) / u_sw
 ```
 
-- The default solar rotation period is 25.38 days.
-- The default source surface radius is 2.5 solar radii.
-- The default Parker footpoint tolerance is 5 degrees.
-- Latitude matching in Parker modes uses a simple latitude tolerance, not a field-line or plasma model.
+where:
 
-Parker spiral behavior is intentionally documented as approximate and should receive scientific review for sign convention, rotation convention, source-surface assumptions, and latitude treatment before publication-quality interpretation.
+- `phi_source` is the estimated source-surface footpoint longitude.
+- `phi_body` is the heliolongitude of the body.
+- `omega_sun` is the assumed solar rotation rate.
+- `r_body` is the heliocentric distance of the body.
+- `r_source_surface` is the assumed source-surface radius.
+- `u_sw` is the solar wind speed.
+
+Default Parker spiral assumptions currently include:
+
+- Solar rotation period: 25.38 days.
+- Source-surface radius: 2.5 solar radii.
+- Parker footpoint tolerance: 5 degrees.
+- Default solar wind speed: 400 km/s.
+
+## Supported Geometries
+
+| Geometry | Description | Main parameters |
+| --- | --- | --- |
+| `opposition` | Heliolongitude separation close to 180 degrees | `--tolerance` |
+| `quadrature` | Heliolongitude separation close to 90 degrees | `--tolerance` |
+| `cone` | Bodies located within a configurable longitude sector | `--cone-width` |
+| `arbitrary` | Heliolongitude separation close to a user-defined angle | `--arbitrary-angle`, `--tolerance` |
+| `parker` | Approximate Parker spiral footpoint longitude matching | `--solar-wind-speed` |
+| `coneparker` | Combined cone and Parker spiral screening | `--cone-width`, `--solar-wind-speed` |
+
+Longitude comparisons use circular angular separation. This means that values near 0 and 360 degrees are treated correctly.
+
+For `quadrature`, the tool uses unsigned circular separation. A 270 degree oriented configuration is therefore treated as equivalent to a 90 degree separation.
+
+For `arbitrary`, angles greater than 180 degrees are interpreted through their equivalent smaller circular separation.
+
+## Optional Latitude Filtering
+
+By default, SolarConflux applies no additional latitude filter.
+
+Set `--latitude-tolerance` in the CLI, or `latitude_tolerance_deg` in Python, to require each candidate group to satisfy:
+
+```text
+max(latitude_deg) - min(latitude_deg) <= latitude_tolerance_deg
+```
+
+For two bodies, this is equivalent to:
+
+```text
+abs(lat1_deg - lat2_deg) <= latitude_tolerance_deg
+```
+
+This latitude filter is a simple heliographic proximity screen applied after the longitude-based geometry criterion. It does not change the Parker spiral approximation, source-surface assumptions, solar wind speed handling, or longitude-based geometry definitions.
+
+## Supported Bodies
+
+SolarConflux currently includes metadata for the following bodies:
+
+- BepiColombo
+- Solar Orbiter
+- PSP
+- Stereo-A
+- Juice
+- Maven
+- Messenger
+- Juno
+- SDO
+- SOHO
+- ACE
+- Venus
+- Earth
+- Mars
+- Jupiter
+- Sun
+
+Availability depends on JPL Horizons coverage for the selected body and date range. Some spacecraft have limited valid time windows.
+
+## Outputs
+
+SolarConflux writes outputs into a date-derived folder inside the selected output directory.
+
+Example:
+
+```text
+results/
+└── 2025-01-01_to_2025-03-01/
+    ├── 2025-01-01_to_2025-03-01.csv
+    ├── run_metadata.json
+    └── *.png
+```
+
+If no matches are found, SolarConflux still writes a header-only CSV file so automated workflows have a predictable artifact.
+
+### CSV Output
+
+CSV files use a stable column order:
+
+| Column | Description |
+| --- | --- |
+| `event_id` | Event identifier within the output file |
+| `start_time` | Start time of the detected event |
+| `end_time` | End time of the detected event |
+| `duration_hours` | Event duration in hours |
+| `duration_days` | Event duration in days |
+| `geometry` | Geometry mode that produced the event |
+| `bodies` | Bodies involved in the event |
+| `number_of_bodies` | Number of bodies in the event |
+| `latitude_tolerance_deg` | Latitude tolerance used, if any |
+| `latitude_span_deg` | Latitude span of the event, if available |
+| `tolerance_deg` | Angular tolerance used |
+| `cone_width_deg` | Cone width used |
+| `arbitrary_angle_deg` | Arbitrary angle used, if any |
+| `solar_wind_speed_km_s` | Solar wind speed used for Parker modes |
+
+Example row:
+
+| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | latitude_tolerance_deg | latitude_span_deg | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 5 | 4 | 10 | 10 |  | 400 |
+
+### Metadata Output
+
+`run_metadata.json` records:
+
+- SolarConflux package version
+- Input parameters
+- Selected body list
+- Horizons identifiers
+- Generated output filenames
+- Main scientific assumptions
+
+This file is intended to improve reproducibility and make output folders easier to interpret later.
+
+### Plot Output
+
+When `--save-plots` is used, SolarConflux saves polar plots for quick visual inspection.
+
+Plots are intended for exploratory analysis and presentation drafts. They may require manual refinement before use in publication-quality figures.
+
+## Scientific Assumptions and Limitations
+
+SolarConflux is an approximate geometry and connectivity screening tool.
+
+Important assumptions:
+
+- Coordinates are compared in a heliocentric spherical frame after trajectory retrieval.
+- Opposition, quadrature, cone, and arbitrary-angle modes compare heliolongitude only.
+- All longitude comparisons use circular angular separation.
+- Optional latitude filtering uses a simple maximum-minus-minimum latitude span in degrees.
+- Parker spiral matching uses a ballistic source-surface footpoint approximation.
+- Latitude matching in Parker modes uses a simple latitude tolerance, not a field-line or plasma model.
 
 Known limitations:
 
-- Horizons queries require network access and valid coverage for each body.
-- Event detection assumes all trajectories share the same number of time steps.
+- SolarConflux is not a full heliospheric MHD model.
+- Horizons queries require network access.
+- Horizons coverage depends on the selected body and date range.
+- Event detection assumes compatible time sampling across all selected trajectories.
 - Optional latitude filtering requires finite latitude values for all bodies in a candidate group.
-- Plots are intended for quick inspection and may need manual refinement for publication figures.
+- Parker spiral behavior should receive scientific review before publication-quality interpretation.
+- The Parker spiral sign convention, solar rotation convention, source-surface radius, and latitude treatment should be validated for the intended scientific application.
+- Plots are intended for inspection and may need refinement for publications.
 
 ## Testing
 
@@ -172,30 +317,95 @@ Run the offline test suite:
 python -m unittest discover -s tests
 ```
 
-If pytest is installed, the same tests are pytest-compatible:
+If `pytest` is installed, the same tests can also be run with:
 
 ```bash
 pytest
 ```
 
-Live Horizons integration tests are skipped by default. Enable them explicitly:
+The offline tests use synthetic trajectories and do not require live Horizons access.
+
+The current test suite includes checks for:
+
+- CLI help behavior.
+- Longitude wraparound near 0 and 360 degrees.
+- Opposition detection.
+- Cone detection.
+- Arbitrary-angle detection.
+- Optional latitude filtering.
+- CSV and metadata export behavior.
+
+Live Horizons checks should be treated separately because they depend on network access and external ephemeris availability.
+
+## Recommended Research Workflow
+
+A typical SolarConflux workflow is:
+
+1. Select bodies and a date range relevant to a solar-observation campaign.
+2. Run a first screening with broad tolerances.
+3. Inspect CSV outputs and optional plots.
+4. Narrow tolerances or add latitude filtering.
+5. Save the final command, CSV output, and `run_metadata.json`.
+6. Perform scientific interpretation with awareness of the assumptions and limitations.
+
+Example:
 
 ```bash
-SOLARCONFLUX_RUN_INTEGRATION=1 pytest -m integration
+solarconflux \
+  --bodies Earth,"Solar Orbiter",BepiColombo \
+  --start-time "2025-01-01" \
+  --end-time "2025-06-01" \
+  --step 60m \
+  --geometries opposition,quadrature,cone,parker \
+  --cone-width 10 \
+  --tolerance 10 \
+  --latitude-tolerance 5 \
+  --solar-wind-speed 400 \
+  --output-dir results \
+  --save-plots \
+  --verbose
 ```
 
 ## Roadmap
 
-- Validate live Horizons retrieval across each supported body and date range.
-- Add a small gallery of real example outputs.
-- Review Parker spiral sign convention and latitude tolerance with domain experts.
-- Add optional controls for plot format and plot density in the CLI.
-- Improve packaging metadata for publication workflows.
+Planned improvements include:
+
+- Validate live Horizons retrieval across all supported bodies and date ranges.
+- Add a gallery of real example outputs.
+- Add continuous integration for automated testing.
+- Add a `CITATION.cff` file for formal software citation.
+- Add more detailed scientific validation notes for Parker spiral assumptions.
+- Review Parker spiral sign convention and source-surface assumptions with domain experts.
+- Improve packaging metadata for research software distribution.
+- Add optional controls for plot format and plot density.
+- Add more examples for coordinated solar-observation case studies.
+
+## Citation
+
+If you use SolarConflux in research, reports, presentations, or derived software, please cite the repository:
+
+```text
+Vellard, E. SolarConflux: Heliocentric geometry and Parker-spiral alignment screening for coordinated solar observations. GitHub repository: https://github.com/EmmaVellard/SolarConflux
+```
+
+A formal `CITATION.cff` file and archived DOI should be added for publication workflows.
+
+## References
+
+Scientific and software context relevant to SolarConflux includes:
+
+- Parker, E. N. (1958). Dynamics of the interplanetary gas and magnetic fields. The Astrophysical Journal.
+- JPL Horizons documentation.
+- SunPy documentation.
+- Astropy documentation.
+- Astroquery documentation.
 
 ## Credits
 
 Author: Emma Vellard
 
-SolarConflux was developed as a research tool for studying coordinated solar observations using spacecraft alignments.
+SolarConflux was developed as a research tool for studying coordinated solar observations using spacecraft and planetary alignments.
 
-License: MIT. See [LICENSE](LICENSE).
+## License
+
+SolarConflux is distributed under the MIT License. See `LICENSE` for details.
