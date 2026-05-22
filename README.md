@@ -1,23 +1,31 @@
-<h1 align="center">🛰️ SolarConflux 🛰️</h1>
+<h1 align="center">SolarConflux</h1>
 
-![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue)
-![License: MIT](https://img.shields.io/badge/license-MIT-yellow)
-![Status](https://img.shields.io/badge/status-research%20prototype-orange)
-![Tests](https://img.shields.io/badge/tests-unittest%20%7C%20pytest--compatible-lightgrey)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-%3E%3D3.9-blue" alt="Python >= 3.9">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT">
+  <img src="https://img.shields.io/badge/status-research%20prototype-orange" alt="Status: research prototype">
+  <img src="https://img.shields.io/badge/tests-unittest%20%7C%20pytest--compatible-lightgrey" alt="Tests">
+</p>
+<p align="center">
+  <img src="https://img.shields.io/badge/python-%3E%3D3.9-blue" alt="Python >= 3.9">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT">
+  <img src="https://img.shields.io/badge/status-research%20prototype-orange" alt="Status: research prototype">
+  <img src="https://img.shields.io/badge/tests-unittest%20%7C%20pytest--compatible-lightgrey" alt="Tests">
+</p>
 
 **SolarConflux** is a Python research tool for screening heliocentric spacecraft and planetary ephemerides for approximate geometric and Parker-spiral alignments relevant to coordinated solar observations.
 
-The tool is designed for transparent scientific screening: clear inputs, explicit assumptions, reproducible CSV outputs, run metadata, and lightweight polar plots.
+It is designed for transparent scientific screening: clear inputs, explicit assumptions, reproducible CSV outputs, run metadata, and lightweight polar plots.
 
 > SolarConflux is intended for observation-planning support and exploratory scientific analysis. It is not a full heliospheric MHD model and should not be used as a validated connectivity model without further scientific review.
 
 ## Scientific Motivation
 
-SolarConflux was developed to help identify time intervals when spacecraft and planetary bodies occupy geometries that may be useful for coordinated solar and heliospheric observations.
+SolarConflux helps identify time intervals when spacecraft and planetary bodies occupy geometries that may be useful for coordinated solar and heliospheric observations.
 
-Such configurations can support the study of solar wind propagation, multi-spacecraft context, and observation opportunities involving missions and bodies such as Solar Orbiter, Parker Solar Probe, BepiColombo, STEREO-A, JUICE, Earth, Venus, Mars, and Jupiter.
+These configurations can support first-pass studies of solar wind propagation, multi-spacecraft context, and observation opportunities involving missions and bodies such as Solar Orbiter, Parker Solar Probe, BepiColombo, STEREO-A, JUICE, Earth, Venus, Mars, and Jupiter.
 
-The goal is not to replace detailed heliospheric modeling, but to provide a transparent first-pass screening tool for finding potentially interesting time windows.
+The goal is not to replace detailed heliospheric modeling, but to provide a transparent screening tool for finding potentially interesting time windows.
 
 ## Features
 
@@ -139,6 +147,32 @@ save_match(matches, "results")
 
 Public angle inputs default to degrees. The lower-level geometry implementation uses radians internally.
 
+## Example Workflow
+
+A reproducible example is provided in:
+
+```text
+examples/earth_solar_orbiter_2025/
+```
+
+This example screens approximate geometric and Parker-spiral alignments between Earth and Solar Orbiter in January 2025.
+
+To run it from the repository root:
+
+```bash
+bash examples/earth_solar_orbiter_2025/command.sh
+```
+
+The example demonstrates CLI usage, trajectory retrieval, cone alignment screening, Parker spiral screening, optional latitude filtering, CSV export, metadata export, and optional polar plot generation.
+
+Outputs are written to:
+
+```text
+examples/earth_solar_orbiter_2025/outputs/
+```
+
+The example depends on live JPL Horizons trajectory retrieval, so it requires internet access and valid ephemeris coverage for the selected bodies and dates.
+
 ## Method Summary
 
 For each selected body and time step, SolarConflux retrieves ephemerides and represents trajectories in a heliocentric spherical frame. The tool then screens candidate time windows using circular angular separation in heliolongitude.
@@ -239,8 +273,6 @@ results/
 
 If no matches are found, SolarConflux still writes a header-only CSV file so automated workflows have a predictable artifact.
 
-### CSV Output
-
 CSV files use a stable column order:
 
 | Column | Description |
@@ -260,30 +292,9 @@ CSV files use a stable column order:
 | `arbitrary_angle_deg` | Arbitrary angle used, if any |
 | `solar_wind_speed_km_s` | Solar wind speed used for Parker modes |
 
-Example row:
+`run_metadata.json` records the SolarConflux package version, input parameters, selected bodies, Horizons identifiers, generated output filenames, and main assumptions.
 
-| event_id | start_time | end_time | duration_hours | duration_days | geometry | bodies | number_of_bodies | latitude_tolerance_deg | latitude_span_deg | tolerance_deg | cone_width_deg | arbitrary_angle_deg | solar_wind_speed_km_s |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 2025-01-01 00:00:00 | 2025-01-01 02:00:00 | 2 | 0.0833333 | cone | Earth;Venus | 2 | 5 | 4 | 10 | 10 |  | 400 |
-
-### Metadata Output
-
-`run_metadata.json` records:
-
-- SolarConflux package version
-- Input parameters
-- Selected body list
-- Horizons identifiers
-- Generated output filenames
-- Main scientific assumptions
-
-This file is intended to improve reproducibility and make output folders easier to interpret later.
-
-### Plot Output
-
-When `--save-plots` is used, SolarConflux saves polar plots for quick visual inspection.
-
-Plots are intended for exploratory analysis and presentation drafts. They may require manual refinement before use in publication-quality figures.
+When `--save-plots` is used, SolarConflux saves polar plots for quick visual inspection. These plots are intended for exploratory analysis and may require manual refinement before use in publication-quality figures.
 
 ## Scientific Assumptions and Limitations
 
@@ -325,70 +336,35 @@ pytest
 
 The offline tests use synthetic trajectories and do not require live Horizons access.
 
-The current test suite includes checks for:
-
-- CLI help behavior.
-- Longitude wraparound near 0 and 360 degrees.
-- Opposition detection.
-- Cone detection.
-- Arbitrary-angle detection.
-- Optional latitude filtering.
-- CSV and metadata export behavior.
+The current test suite includes checks for CLI help behavior, longitude wraparound near 0 and 360 degrees, opposition detection, cone detection, arbitrary-angle detection, optional latitude filtering, CSV export, and metadata export behavior.
 
 Live Horizons checks should be treated separately because they depend on network access and external ephemeris availability.
-
-## Recommended Research Workflow
-
-A typical SolarConflux workflow is:
-
-1. Select bodies and a date range relevant to a solar-observation campaign.
-2. Run a first screening with broad tolerances.
-3. Inspect CSV outputs and optional plots.
-4. Narrow tolerances or add latitude filtering.
-5. Save the final command, CSV output, and `run_metadata.json`.
-6. Perform scientific interpretation with awareness of the assumptions and limitations.
-
-Example:
-
-```bash
-solarconflux \
-  --bodies Earth,"Solar Orbiter",BepiColombo \
-  --start-time "2025-01-01" \
-  --end-time "2025-06-01" \
-  --step 60m \
-  --geometries opposition,quadrature,cone,parker \
-  --cone-width 10 \
-  --tolerance 10 \
-  --latitude-tolerance 5 \
-  --solar-wind-speed 400 \
-  --output-dir results \
-  --save-plots \
-  --verbose
-```
 
 ## Roadmap
 
 Planned improvements include:
 
 - Validate live Horizons retrieval across all supported bodies and date ranges.
-- Add a gallery of real example outputs.
+- Expand the example gallery with additional validated spacecraft configurations.
 - Add continuous integration for automated testing.
-- Add a `CITATION.cff` file for formal software citation.
 - Add more detailed scientific validation notes for Parker spiral assumptions.
 - Review Parker spiral sign convention and source-surface assumptions with domain experts.
 - Improve packaging metadata for research software distribution.
 - Add optional controls for plot format and plot density.
-- Add more examples for coordinated solar-observation case studies.
 
 ## Citation
 
-If you use SolarConflux in research, reports, presentations, or derived software, please cite the repository:
+If you use SolarConflux in research, reports, presentations, or derived software, please cite the repository using the metadata provided in [`CITATION.cff`](CITATION.cff).
+
+GitHub should display a **“Cite this repository”** button in the sidebar when the `CITATION.cff` file is present.
+
+Suggested citation:
 
 ```text
 Vellard, E. SolarConflux: Heliocentric geometry and Parker-spiral alignment screening for coordinated solar observations. GitHub repository: https://github.com/EmmaVellard/SolarConflux
 ```
 
-A formal `CITATION.cff` file and archived DOI should be added for publication workflows.
+A DOI may be added later by archiving a release through Zenodo or another research software archive.
 
 ## References
 
