@@ -48,12 +48,12 @@ examples/earth_solar_orbiter_2025/outputs/
 
 ## Expected outputs
 
-After a successful run, the output folder should contain a date-derived directory with files such as:
+This repository includes a generated output set from this example. Re-running the command may update the CSV, metadata, and plot files depending on ephemeris availability and local package changes.
 
 ```text
 outputs/
-└── 2025-01-01_to_2025-01-15/
-    ├── 2025-01-01_to_2025-01-15.csv
+└── 2025-01-01_to_2025-01-14/
+    ├── 2025-01-01_to_2025-01-14.csv
     ├── run_metadata.json
     └── *.png
 ```
