@@ -36,6 +36,15 @@ The goal is not to replace detailed heliospheric modeling, but to provide a tran
 - Run from either a command-line interface or a Python workflow.
 - Include offline synthetic tests for geometry behavior.
 
+## Documentation
+
+Additional documentation:
+
+- [Scientific validation and assumptions](docs/scientific_validation.md)
+- [Release plan](docs/release_plan.md)
+- [Example workflow: Earth and Solar Orbiter](examples/earth_solar_orbiter_2025/README.md)
+- [Changelog](CHANGELOG.md)
+
 ## Installation
 
 From a local checkout:
