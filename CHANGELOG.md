@@ -4,6 +4,12 @@ All notable changes to SolarConflux will be documented in this file.
 
 SolarConflux follows a lightweight versioning approach while it remains a research prototype.
 
+## Unreleased
+
+### Added
+
+- Parker spiral convention documentation and regression tests.
+
 ## 0.1.0
 
 Initial research-prototype release.
