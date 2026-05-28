@@ -4,13 +4,13 @@ All notable changes to SolarConflux will be documented in this file.
 
 SolarConflux follows a lightweight versioning approach while it remains a research prototype.
 
-## Unreleased
+## 0.2.0 - 2026-05-28
 
 ### Added
 
 - Parker spiral convention documentation and regression tests.
 - Documented Solar Orbiter and BepiColombo validation case with generated outputs.
-- Reorganized examples and validation cases under `case_studies/`.
+- Organized reproducible workflows under `case_studies/`.
 
 ## 0.1.0
 
