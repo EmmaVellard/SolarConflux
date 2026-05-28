@@ -1,0 +1,38 @@
+{
+  "assumptions": [
+    "Heliocentric geometries use spherical longitudes in the selected frame.",
+    "Longitude comparisons use circular angular separation.",
+    "Parker spiral matching uses a ballistic source-surface footpoint approximation.",
+    "SolarConflux is not a full heliospheric MHD model."
+  ],
+  "body_list": [
+    "BepiColombo",
+    "Solar Orbiter",
+    "Earth"
+  ],
+  "generated_output_filenames": [
+    "2025-01-01_to_2025-01-07.csv",
+    "cone_events_001-001_2025-01-01_to_2025-01-07.png"
+  ],
+  "horizons_ids": {
+    "BepiColombo": "BepiColombo",
+    "Earth": 399,
+    "Solar Orbiter": "Solar Orbiter"
+  },
+  "input_parameters": {
+    "arbitrary_angle_degrees": null,
+    "cone_width_degrees": 15.0,
+    "geometries": [
+      "opposition",
+      "quadrature",
+      "cone",
+      "parker",
+      "coneparker"
+    ],
+    "latitude_tolerance_deg": 10.0,
+    "solar_wind_speed_km_s": 400.0,
+    "step": "6h",
+    "tolerance_degrees": 10.0
+  },
+  "package_version": "0.1.0"
+}

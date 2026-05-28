@@ -44,6 +44,7 @@ Additional documentation:
 - [Parker spiral convention](docs/parker_spiral_convention.md)
 - [Release plan](docs/release_plan.md)
 - [Example workflow: Earth and Solar Orbiter](examples/earth_solar_orbiter_2025/README.md)
+- [Validation case: Solar Orbiter and BepiColombo](validation_cases/solar_orbiter_bepicolombo/README.md)
 - [Changelog](CHANGELOG.md)
 
 ## Installation
