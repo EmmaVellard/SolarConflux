@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from . import __version__
-from .bodies import horizons_ids_for_bodies, validate_body_names
+from .bodies import get_infos, horizons_ids_for_bodies, validate_body_names
 from .export import save_match, save_run_metadata
 from .functions import build_run_parameters, matching_dates
 from .plotting import save_plot
@@ -30,6 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--interactive", action="store_true", help="Run beginner-friendly interactive prompts.")
+    parser.add_argument(
+        "--list-bodies",
+        action="store_true",
+        help="Print supported bodies, Horizons IDs, and available date ranges, then exit.",
+    )
     parser.add_argument("--bodies", help="Comma-separated bodies, for example Earth,Venus,Solar Orbiter.")
     parser.add_argument("--start-time", help="Start time, for example 2025-01-01 or 2025-01-01 12:00.")
     parser.add_argument("--end-time", help="End time, for example 2025-12-31.")
@@ -57,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
     plot_group.add_argument("--save-plots", dest="save_plots", action="store_true", help="Save polar plots.")
     plot_group.add_argument("--no-plots", dest="save_plots", action="store_false", help="Do not save plots.")
     parser.set_defaults(save_plots=False)
+    parser.add_argument(
+        "--plot-format",
+        help="Comma-separated plot formats used with --save-plots, for example png,pdf. Default: png.",
+    )
     parser.add_argument("--verbose", action="store_true", help="Print progress messages.")
     parser.add_argument("--version", action="version", version=f"solarconflux {__version__}")
     return parser
@@ -67,6 +76,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if args.list_bodies:
+            print_supported_bodies()
+            return 0
+
+        if args.plot_format and not args.save_plots:
+            parser.error("--plot-format requires --save-plots.")
+
         if args.interactive or not _has_noninteractive_args(args):
             return run_interactive()
 
@@ -95,9 +111,12 @@ def run_from_args(args: argparse.Namespace) -> None:
     validate_date_range(args.start_time, args.end_time)
     step = validate_step(args.step)
     latitude_tolerance_deg = validate_optional_latitude_tolerance_degrees(args.latitude_tolerance)
+    plot_formats = _parse_plot_formats(args.plot_format)
 
     if "arbitrary" in geometries and args.arbitrary_angle is None:
         raise ValueError("--arbitrary-angle is required when using the arbitrary geometry.")
+    if args.plot_format and not args.save_plots:
+        raise ValueError("--plot-format requires --save-plots.")
 
     output_dir = Path(args.output_dir)
     parameters = build_run_parameters(
@@ -131,7 +150,7 @@ def run_from_args(args: argparse.Namespace) -> None:
     output_files = [csv_path]
 
     if args.save_plots:
-        output_files.extend(save_plot(matches, trajectories, output_dir))
+        output_files.extend(save_plot(matches, trajectories, output_dir, formats=plot_formats))
 
     save_run_metadata(
         csv_path.parent,
@@ -194,6 +213,7 @@ def run_interactive() -> int:
         solar_wind_speed=solar_wind_speed,
         output_dir=output_dir,
         save_plots=plot_choice == "y",
+        plot_format="png",
         verbose=True,
     )
     run_from_args(args)
@@ -202,6 +222,28 @@ def run_interactive() -> int:
 
 def _has_noninteractive_args(args: argparse.Namespace) -> bool:
     return any([args.bodies, args.start_time, args.end_time, args.geometries])
+
+
+def print_supported_bodies() -> None:
+    """Print supported body metadata for CLI users."""
+    print("Supported bodies:\n")
+    print(f"{'Body':<16} {'Horizons ID':<22} {'Available date range'}")
+    print(f"{'-' * 16} {'-' * 22} {'-' * 20}")
+    for body, info in get_infos().items():
+        horizons_id = str(info["id"])
+        date_range = f"{info['start']} to {info['end']}"
+        print(f"{body:<16} {horizons_id:<22} {date_range}")
+
+
+def _parse_plot_formats(value: Optional[str]) -> List[str]:
+    """Return normalized plot format strings from a comma-separated CLI value."""
+    if value is None:
+        return ["png"]
+    formats = [item.strip().lower().lstrip(".") for item in value.split(",")]
+    formats = [item for item in formats if item]
+    if not formats:
+        raise ValueError("--plot-format must include at least one format.")
+    return formats
 
 
 if __name__ == "__main__":
