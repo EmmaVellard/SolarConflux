@@ -10,6 +10,7 @@ SolarConflux follows a lightweight versioning approach while it remains a resear
 
 - Parker spiral convention documentation and regression tests.
 - Documented Solar Orbiter and BepiColombo validation case with generated outputs.
+- Reorganized examples and validation cases under `case_studies/`.
 
 ## 0.1.0
 

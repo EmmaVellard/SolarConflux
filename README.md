@@ -43,8 +43,8 @@ Additional documentation:
 - [Scientific validation and assumptions](docs/scientific_validation.md)
 - [Parker spiral convention](docs/parker_spiral_convention.md)
 - [Release plan](docs/release_plan.md)
-- [Example workflow: Earth and Solar Orbiter](examples/earth_solar_orbiter_2025/README.md)
-- [Validation case: Solar Orbiter and BepiColombo](validation_cases/solar_orbiter_bepicolombo/README.md)
+- [Example workflow: Earth and Solar Orbiter](case_studies/examples/earth_solar_orbiter_2025/README.md)
+- [Validation case: Solar Orbiter and BepiColombo](case_studies/validation/solar_orbiter_bepicolombo/README.md)
 - [Changelog](CHANGELOG.md)
 
 ## Installation
@@ -159,7 +159,7 @@ Public angle inputs default to degrees. The lower-level geometry implementation 
 A reproducible example is provided in:
 
 ```text
-examples/earth_solar_orbiter_2025/
+case_studies/examples/earth_solar_orbiter_2025/
 ```
 
 This example screens approximate geometric and Parker-spiral alignments between Earth and Solar Orbiter in January 2025.
@@ -167,7 +167,7 @@ This example screens approximate geometric and Parker-spiral alignments between 
 To run it from the repository root:
 
 ```bash
-bash examples/earth_solar_orbiter_2025/command.sh
+bash case_studies/examples/earth_solar_orbiter_2025/command.sh
 ```
 
 The example demonstrates CLI usage, trajectory retrieval, cone alignment screening, Parker spiral screening, optional latitude filtering, CSV export, metadata export, and optional polar plot generation.
@@ -175,7 +175,7 @@ The example demonstrates CLI usage, trajectory retrieval, cone alignment screeni
 Outputs are written to:
 
 ```text
-examples/earth_solar_orbiter_2025/outputs/
+case_studies/examples/earth_solar_orbiter_2025/outputs/
 ```
 
 The example depends on live JPL Horizons trajectory retrieval, so it requires internet access and valid ephemeris coverage for the selected bodies and dates.

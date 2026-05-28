@@ -22,6 +22,6 @@ solarconflux \
   --tolerance 15 \
   --latitude-tolerance 10 \
   --solar-wind-speed 400 \
-  --output-dir examples/earth_solar_orbiter_2025/outputs \
+  --output-dir case_studies/examples/earth_solar_orbiter_2025/outputs \
   --save-plots \
   --verbose

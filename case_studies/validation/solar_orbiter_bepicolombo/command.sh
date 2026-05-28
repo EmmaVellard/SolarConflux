@@ -20,7 +20,7 @@ solarconflux \
   --tolerance 10 \
   --latitude-tolerance 10 \
   --solar-wind-speed 400 \
-  --output-dir validation_cases/solar_orbiter_bepicolombo/outputs \
+  --output-dir case_studies/validation/solar_orbiter_bepicolombo/outputs \
   --save-plots \
   --plot-format png \
   --verbose

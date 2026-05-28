@@ -31,13 +31,13 @@ The selected interval, 2025-01-01 to 2025-01-15, falls within the repository met
 Run the validation workflow from any directory with:
 
 ```bash
-bash validation_cases/solar_orbiter_bepicolombo/command.sh
+bash case_studies/validation/solar_orbiter_bepicolombo/command.sh
 ```
 
 The script moves to the repository root, installs the local package, and writes outputs under:
 
 ```text
-validation_cases/solar_orbiter_bepicolombo/outputs/
+case_studies/validation/solar_orbiter_bepicolombo/outputs/
 ```
 
 ## Parameters

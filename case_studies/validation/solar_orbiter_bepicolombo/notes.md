@@ -11,7 +11,7 @@ The selected geometries are opposition, quadrature, cone, Parker, and cone-Parke
 Inspect the output directory with:
 
 ```bash
-find validation_cases/solar_orbiter_bepicolombo/outputs -maxdepth 4 -type f
+find case_studies/validation/solar_orbiter_bepicolombo/outputs -maxdepth 4 -type f
 ```
 
 Expected generated artifacts include:

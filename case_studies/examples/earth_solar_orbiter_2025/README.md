@@ -23,13 +23,13 @@ It includes:
 From the root of the repository, run:
 
 ```bash
-bash examples/earth_solar_orbiter_2025/command.sh
+bash case_studies/examples/earth_solar_orbiter_2025/command.sh
 ```
 
 The script writes outputs to:
 
 ```text
-examples/earth_solar_orbiter_2025/outputs/
+case_studies/examples/earth_solar_orbiter_2025/outputs/
 ```
 
 ## Parameters
