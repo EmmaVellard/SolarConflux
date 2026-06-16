@@ -250,6 +250,7 @@ SolarConflux currently includes metadata for the following bodies:
 - PSP
 - Stereo-A
 - Juice
+- Europa Clipper
 - Maven
 - Messenger
 - Juno
