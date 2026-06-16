@@ -18,6 +18,11 @@ _BODY_INFO: Dict[str, BodyInfo] = {
         "start": "2020-02-10 04:56",
         "end": "2030-11-20 05:14",
     },
+    "Europa Clipper": {
+        "id": -159,
+        "start": "2024-10-14 16:06",
+        "end": "2030-04-11 23:59",
+    },
     "PSP": {
         "id": "Parker Solar Probe",
         "start": "2018-08-12 08:30",
