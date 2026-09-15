@@ -10,6 +10,7 @@ from collections import OrderedDict
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import logging
 import os
 from pathlib import Path
 import threading
@@ -82,6 +83,7 @@ def retrieve(payload):
         try:
             trajectories = get_trajectories(names, request["start"], request["end"], request["step"])
         except Exception as exc:
+            logging.exception("Horizons retrieval failed for %s", names)
             _BACKOFF_UNTIL = time.monotonic() + 60
             raise RuntimeError(f"{exc} Check mission coverage for the selected dates; Horizons may also be temporarily unavailable.") from exc
         bundle = trajectory_bundle(trajectories, request["start"], request["end"], request["step"])
