@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar
 
 TimeLike = TypeVar("TimeLike")
@@ -79,6 +79,11 @@ def group_consecutive_events(
 def format_timestamp(value: object) -> str:
     """Format datetime-like values consistently for CSV/API output."""
     if isinstance(value, datetime):
+        from .validation import parse_datetime
+        value = parse_datetime(value, "timestamp")
+        # Horizons time-scale conversions can leave microsecond roundoff near
+        # an exact cadence boundary. Round instead of truncating to the prior second.
+        value = value + timedelta(microseconds=500000)
         return value.strftime("%Y-%m-%d %H:%M:%S")
     if hasattr(value, "strftime"):
         return value.strftime("%Y-%m-%d %H:%M:%S")

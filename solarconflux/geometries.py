@@ -16,6 +16,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from .angles import angular_separation_rad, target_separation_rad
 from .events import MatchEntry, format_timestamp
 from .validation import (
+    parse_datetime,
     normalize_geometry_choices,
     validate_non_negative_angle,
     validate_positive_angle,
@@ -63,8 +64,13 @@ class Geometry:
         source_surface_radius_km: float = 2.5 * 696000.0,
         latitude_tolerance: Optional[float] = None,
     ) -> None:
-        self.spacecraft_names = tuple(spacecraft_names)
-        self.trajectories = dict(trajectories)
+        self.spacecraft_names = tuple(dict.fromkeys(spacecraft_names))
+        if not self.spacecraft_names:
+            raise ValueError("At least one body must be selected.")
+        missing = set(self.spacecraft_names) - set(trajectories)
+        if missing:
+            raise ValueError("Missing trajectories for: " + ", ".join(sorted(missing)) + ".")
+        self.trajectories = {name: trajectories[name] for name in self.spacecraft_names}
         self.frame = frame
         self.cone_width = validate_positive_angle(cone_width, "cone_width")
         self.tolerance = validate_non_negative_angle(tolerance, "tolerance")
@@ -75,6 +81,8 @@ class Geometry:
             else validate_non_negative_angle(latitude_tolerance, "latitude_tolerance")
         )
         self.source_surface_radius = float(source_surface_radius_km)
+        if not math.isfinite(self.source_surface_radius) or self.source_surface_radius < 0:
+            raise ValueError("source_surface_radius_km must be finite and non-negative.")
 
         if solar_rotation_period <= 0 or not math.isfinite(float(solar_rotation_period)):
             raise ValueError("solar_rotation_period must be positive and finite.")
@@ -82,6 +90,21 @@ class Geometry:
 
         self._validate_trajectories()
         self.states = self.calculate_states()
+        previous_time = None
+        for step_states in self.states:
+            timestamps = [parse_datetime(state.time, "trajectory time") for state in step_states]
+            if any(time != timestamps[0] for time in timestamps):
+                raise ValueError("All trajectories must have matching timestamps at each step.")
+            if previous_time is not None and timestamps[0] <= previous_time:
+                raise ValueError("Trajectory timestamps must be strictly increasing.")
+            previous_time = timestamps[0]
+            for state in step_states:
+                if not math.isfinite(state.lon_rad):
+                    raise ValueError(f"Longitude must be finite for {state.name}.")
+                if not math.isfinite(state.radius_km) or state.radius_km < 0:
+                    raise ValueError(f"Radius must be finite and non-negative for {state.name}.")
+                if state.lat_rad is not None and (not math.isfinite(state.lat_rad) or abs(state.lat_rad) > math.pi / 2):
+                    raise ValueError(f"Latitude must be finite and within -90 to 90 degrees for {state.name}.")
         self.angles, self.latitudes = self.calculate_angles()
 
     def _validate_trajectories(self) -> None:
@@ -209,6 +232,8 @@ class Geometry:
         arbitrary_angle: Optional[float],
         u_sw: float,
     ) -> List[Tuple[Tuple[str, ...], Optional[float]]]:
+        # The Sun is the coordinate origin, with no observing longitude.
+        step_states = [state for state in step_states if state.name != "Sun"]
         groups: Dict[Tuple[str, ...], Optional[float]] = {}
         state_by_name = {state.name: state for state in step_states}
 

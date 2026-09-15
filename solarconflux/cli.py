@@ -12,6 +12,7 @@ from .export import save_match, save_run_metadata
 from .functions import build_run_parameters, matching_dates
 from .plotting import save_plot
 from .trajectories import get_info, get_trajectories
+from .browser import save_trajectory_bundle
 from .validation import (
     normalize_geometry_choices,
     validate_date_range,
@@ -58,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Solar wind speed for Parker spiral modes in km/s.",
     )
     parser.add_argument("--output-dir", default="solarconflux_output", help="Directory for CSV, metadata, and plots.")
+    parser.add_argument("--export-trajectories", action="store_true", help="Save HCI trajectories as JSON for the browser GUI.")
     plot_group = parser.add_mutually_exclusive_group()
     plot_group.add_argument("--save-plots", dest="save_plots", action="store_true", help="Save polar plots.")
     plot_group.add_argument("--no-plots", dest="save_plots", action="store_false", help="Do not save plots.")
@@ -126,6 +128,13 @@ def run_from_args(args: argparse.Namespace) -> None:
         latitude_tolerance_deg=latitude_tolerance_deg,
         solar_wind_speed_km_s=args.solar_wind_speed,
     )
+    # Validate numeric inputs before an expensive network request.
+    from .validation import angle_to_radians, validate_non_negative_angle, validate_positive_angle, validate_solar_wind_speed_mps
+    validate_positive_angle(angle_to_radians(args.cone_width, "deg", "cone_width"), "cone_width")
+    validate_non_negative_angle(angle_to_radians(args.tolerance, "deg", "tolerance"), "tolerance")
+    validate_solar_wind_speed_mps(args.solar_wind_speed * 1000.0)
+    if args.arbitrary_angle is not None:
+        validate_non_negative_angle(angle_to_radians(args.arbitrary_angle, "deg", "arbitrary_angle"), "arbitrary_angle")
 
     if args.verbose:
         print("Fetching trajectories...")
@@ -148,13 +157,15 @@ def run_from_args(args: argparse.Namespace) -> None:
 
     csv_path = save_match(matches, output_dir, parameters=parameters)
     output_files = [csv_path]
+    if getattr(args, "export_trajectories", False):
+        output_files.append(save_trajectory_bundle(trajectories, csv_path.parent / "trajectories.json", args.start_time, args.end_time, step))
 
     if args.save_plots:
         output_files.extend(save_plot(matches, trajectories, output_dir, formats=plot_formats))
 
     save_run_metadata(
         csv_path.parent,
-        parameters={**parameters, "step": step, "geometries": geometries},
+        parameters={**parameters, "step": step, "geometries": geometries, "start_time": args.start_time, "end_time": args.end_time, "frame": "HeliocentricInertial", "time_scale": "UTC", "parker_tolerance_degrees": 5.0, "solar_rotation_period_days": 25.38, "source_surface_radius_km": 1740000.0},
         body_list=bodies,
         horizons_ids=horizons_ids_for_bodies(bodies),
         package_version=__version__,

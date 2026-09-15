@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Union
 
 from .angles import degrees_to_radians
@@ -31,7 +31,7 @@ _STEP_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|m
 def parse_datetime(value: object, name: str) -> datetime:
     """Parse a date/time value using Python's ISO-like datetime parser."""
     if isinstance(value, datetime):
-        return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
     if value is None:
         raise ValueError(f"{name} is required.")
 
@@ -42,7 +42,8 @@ def parse_datetime(value: object, name: str) -> datetime:
         text = text[:-1] + "+00:00"
 
     try:
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None) if parsed.tzinfo else parsed
     except ValueError as exc:
         raise ValueError(
             f"{name} must be a valid ISO-like date/time, for example 2025-01-01 or 2025-01-01 12:00."

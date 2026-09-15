@@ -102,7 +102,7 @@ def _flatten_entries(
 def _output_folder_name(rows: List[Tuple[str, str, str, List[str], Any]]) -> str:
     if not rows:
         return "solarconflux_results"
-    return f"{rows[0][0][:10]}_to_{rows[-1][1][:10]}"
+    return f"{min(row[0] for row in rows)[:10]}_to_{max(row[1] for row in rows)[:10]}"
 
 
 def _csv_row(

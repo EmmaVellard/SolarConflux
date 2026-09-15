@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Explore spacecraft alignments with SolarConflux. Screen heliocentric trajectories with transparent, reproducible Python calculations in your browser."
+    />
+    <meta name="theme-color" content="#f5f6f2" />
+    <title>SolarConflux · Alignment explorer</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to explorer</a>
+    <header class="topbar">
+      <a class="brand" href="./"
+        ><svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="6" fill="currentColor" />
+          <ellipse
+            cx="20"
+            cy="20"
+            rx="18"
+            ry="9"
+            transform="rotate(-35 20 20)"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+          />
+          <circle cx="32" cy="9" r="3" fill="currentColor" /></svg
+        >SolarConflux<span class="version">RESEARCH WORKSPACE</span></a
+      >
+      <nav aria-label="Main">
+        <a href="#explorer" id="explorer-link" aria-current="page">Explorer</a>
+        <a href="#history" id="history-link"
+          >History <span id="history-count"></span
+        ></a>
+        <button id="method-button" class="text-button">
+          Method & assumptions</button
+        ><a
+          href="https://github.com/EmmaVellard/SolarConflux"
+          target="_blank"
+          rel="noopener"
+          >GitHub ↗</a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="heading">
+        <div>
+          <div class="eyebrow">HELIOPHYSICS / OBSERVATION PLANNING</div>
+          <h1>Find the moments that align.</h1>
+          <p>
+            Explore the geometry between worlds. Discover windows for
+            coordinated observations.
+          </p>
+        </div>
+        <span class="status-pill"><span></span> Runs in your browser</span>
+      </section>
+      <div id="explorer-page">
+        <div class="workspace">
+          <aside class="panel controls" aria-label="Screening configuration">
+            <div class="panel-heading">
+              <h2>Configure a screening</h2>
+              <span class="step-label">01 — INPUTS</span>
+            </div>
+            <form id="screen-form">
+              <div class="field-section">
+                <label for="run-title">Run name</label
+                ><input
+                  id="run-title"
+                  value="Inner heliosphere · January 2025"
+                  maxlength="100"
+                  placeholder="Name this run"
+                />
+              </div>
+              <div class="field-section period-planner">
+                <div class="section-label">
+                  <h3>Observation periods</h3>
+                  <span id="period-count" class="count">1</span>
+                </div>
+                <p class="hint">
+                  Give each period its own dates and bodies. Geometry settings
+                  below apply to all periods.
+                </p>
+                <div id="periods"></div>
+                <button type="button" id="add-period" class="import-button">
+                  ＋ Add period
+                </button>
+              </div>
+              <fieldset class="field-section">
+                <legend>Alignment geometry</legend>
+                <div class="selection-actions">
+                  <button
+                    type="button"
+                    id="unselect-geometries"
+                    class="inline-link"
+                  >
+                    Unselect all geometries
+                  </button>
+                </div>
+                <div class="modes">
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="cone"
+                      checked
+                    /><span>Cone<small>Nearby longitudes</small></span
+                    ><b>∠</b></label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="parker"
+                      checked
+                    /><span
+                      >Parker spiral<small>Ballistic footpoints</small></span
+                    ><b>≈</b></label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="opposition"
+                    /><span>Opposition<small>180° separation</small></span
+                    ><b>↔</b></label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="quadrature"
+                    /><span>Quadrature<small>90° separation</small></span
+                    ><b>⌜</b></label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="coneparker"
+                    /><span>Cone + Parker<small>Both conditions</small></span
+                    ><b>⋈</b></label
+                  >
+                  <label
+                    ><input
+                      type="checkbox"
+                      name="mode"
+                      value="arbitrary"
+                    /><span
+                      >Custom angle<small>Your target separation</small></span
+                    ><b>α</b></label
+                  >
+                </div>
+              </fieldset>
+              <div class="field-section parameters">
+                <div class="field-row">
+                  <label
+                    >Cone width · °<input
+                      id="cone"
+                      type="number"
+                      min="0.001"
+                      max="180"
+                      step="any"
+                      value="20"
+                      required /></label
+                  ><label
+                    >Angular tolerance · °<input
+                      id="tolerance"
+                      type="number"
+                      min="0"
+                      max="180"
+                      step="any"
+                      value="15"
+                      required
+                  /></label>
+                </div>
+                <div class="field-row">
+                  <label
+                    >Solar wind · km/s<input
+                      id="speed"
+                      type="number"
+                      min="1"
+                      step="any"
+                      value="400"
+                      required /></label
+                  ><label
+                    >Latitude span · °<input
+                      id="latitude"
+                      type="number"
+                      min="0"
+                      max="180"
+                      step="any"
+                      value="10"
+                      placeholder="No filter"
+                  /></label>
+                </div>
+                <label id="angle-label" hidden
+                  >Custom angle · °<input
+                    id="angle"
+                    type="number"
+                    min="0"
+                    max="180"
+                    step="any"
+                    value="30"
+                    required
+                /></label>
+                <p class="hint">
+                  Parker footpoint tolerance: 5°. Latitude difference uses the
+                  angular tolerance.
+                </p>
+              </div>
+              <button class="primary run" id="run" type="submit">
+                Retrieve &amp; screen <span>→</span></button
+              ><button class="cancel" id="cancel" type="button" hidden>
+                Cancel calculation
+              </button>
+              <p class="hint run-note">
+                Completed runs are saved in History on this browser.
+              </p>
+            </form>
+          </aside>
+          <div class="results-area">
+            <div
+              id="feedback"
+              class="feedback"
+              role="status"
+              aria-live="polite"
+            >
+              Choose periods and bodies, then retrieve &amp; screen.
+            </div>
+            <div
+              id="period-results"
+              class="period-results"
+              aria-label="Period results"
+            ></div>
+            <section class="panel orbit-panel" aria-labelledby="orbit-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">TRAJECTORY EXPLORER</span>
+                  <h2 id="orbit-title">A shared view of the Sun</h2>
+                </div>
+                <span class="small-pill">HCI · XY projection</span>
+              </div>
+              <p id="source-note" class="run-summary">
+                Bundled example preview · January 2025
+              </p>
+              <div class="orbit-layout">
+                <div id="orbit" class="orbit" aria-live="off"></div>
+                <div class="orbit-side">
+                  <span class="eyebrow">SELECTED SAMPLE</span
+                  ><time id="sample-date">—</time>
+                  <div id="legend"></div>
+                  <div class="plot-note">
+                    <span class="sun-dot"></span
+                    ><strong>Sun-centered perspective</strong>
+                    <p>
+                      Positions projected onto the solar equatorial plane.
+                      Distances in astronomical units (AU).
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="scrubber">
+                <button id="play" type="button" aria-label="Play trajectory">
+                  ▶
+                </button>
+                <div>
+                  <label for="time-slider" class="sr-only"
+                    >Trajectory sample</label
+                  ><input
+                    id="time-slider"
+                    type="range"
+                    min="0"
+                    max="1"
+                    value="0"
+                  />
+                  <div class="range-labels">
+                    <span id="range-start">—</span><span id="range-end">—</span>
+                  </div>
+                </div>
+                <span id="sample-number" class="hint">—</span>
+              </div>
+            </section>
+            <section
+              id="results"
+              class="panel events-panel"
+              aria-labelledby="events-title"
+            >
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">SCREENING RESULTS</span>
+                  <h2 id="events-title">
+                    Alignment windows
+                    <span id="event-count" class="count">—</span>
+                  </h2>
+                </div>
+                <div class="exports">
+                  <button id="export-all" disabled>↓ All periods CSV</button
+                  ><button id="export-csv" disabled>↓ CSV</button
+                  ><button id="export-json" disabled>↓ Metadata</button>
+                </div>
+              </div>
+              <div id="run-summary" class="run-summary">
+                Choose your parameters, then find alignments.
+              </div>
+              <div class="results-toolbar">
+                <label for="filter">Show</label
+                ><select id="filter">
+                  <option value="all">All geometries</option></select
+                ><span id="filter-count" class="hint"></span>
+              </div>
+              <div id="event-table"></div>
+              <div id="pagination" class="pagination" hidden>
+                <button id="prev">← Previous</button
+                ><span id="page-label"></span><button id="next">Next →</button>
+              </div>
+            </section>
+            <div class="science-note">
+              <span>ⓘ</span>
+              <p>
+                <strong>Candidate windows, with context.</strong> These are
+                approximate geometric alignments. Parker screening does not
+                establish magnetic connectivity. Event boundaries follow the
+                sampling cadence.
+                <button id="method-inline" class="inline-link">
+                  Read the assumptions →
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section id="history-page" hidden aria-labelledby="history-title">
+        <div class="history-heading">
+          <div>
+            <span class="eyebrow">YOUR RESEARCH NOTEBOOK</span>
+            <h1 id="history-title">Run history</h1>
+            <p>
+              Reopen the exact data, settings, and results from an earlier run.
+            </p>
+          </div>
+          <a class="button-link" href="#explorer">← Back to explorer</a>
+        </div>
+        <p class="history-storage">
+          Saved on this browser and device. Download a run as a backup before
+          clearing browser data.
+        </p>
+        <div id="history-feedback" role="status"></div>
+        <div id="history-list"></div>
+      </section>
+      <footer>
+        <span
+          >SolarConflux <span class="muted">/</span> A clearer view of
+          coordinated observations.
+          <span class="credit">Created by Emma Vellard</span></span
+        ><span>HCI coordinates · UTC timestamps · Research prototype</span>
+      </footer>
+    </main>
+    <dialog id="method-dialog">
+      <div class="dialog-heading">
+        <h2>What the screening tells you</h2>
+        <button data-close aria-label="Close assumptions">✕</button>
+      </div>
+      <p>
+        SolarConflux identifies candidate observation windows from heliocentric
+        longitudes and optional latitude limits. It is a research prototype.
+      </p>
+      <h3>Geometry & grouping</h3>
+      <p>
+        Cone compares circular longitude separation. Opposition targets 180°;
+        quadrature targets 90°. Groups share an anchor body: every pair in a
+        multi-body group does not necessarily satisfy the condition.
+      </p>
+      <h3>Parker convention</h3>
+      <p>
+        Source longitude = body longitude + Ω × (radius − source radius) / wind
+        speed. The rotation period is 25.38 days, source radius is 1,740,000 km,
+        and footpoint tolerance is 5°. One uniform wind speed is used for all
+        bodies.
+      </p>
+      <h3>Time & provenance</h3>
+      <p>
+        Times are UTC. Durations span the first to last matching sample; a
+        single-sample event has zero duration. Boundaries are not interpolated.
+        The chart is a projection of actual samples; it does not draw magnetic
+        field lines. Imported provenance is supplied by the file and is not
+        independently verified.
+      </p>
+      <h3>Browser operation</h3>
+      <p>
+        Live requests send the selected body names and UTC periods to the
+        SolarConflux retrieval service, which fetches Horizons ephemerides.
+        Imported files stay in your browser. Python screening runs here using
+        the pinned Pyodide runtime. Run history stores trajectories, settings
+        and results locally on this browser; download backups before clearing
+        browser data. The Sun is displayed as the HCI origin and is excluded
+        from alignment comparisons.
+      </p>
+      <a
+        href="https://github.com/EmmaVellard/SolarConflux/blob/main/docs/scientific_validation.md"
+        target="_blank"
+        rel="noopener"
+        >Full scientific validation notes ↗</a
+      >
+    </dialog>
+    <noscript
+      >This explorer needs JavaScript. You can also use the Python command-line
+      app from the linked GitHub repository.</noscript
+    >
+  </body>
+</html>

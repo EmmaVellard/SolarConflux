@@ -15,6 +15,38 @@ It is designed for transparent scientific screening: clear inputs, explicit assu
 
 > SolarConflux is intended for observation-planning support and exploratory scientific analysis. It is not a full heliospheric MHD model and should not be used as a validated connectivity model without further scientific review.
 
+## Browser GUI
+
+Plan and screen observations directly in the page. Choose **JPL Horizons · retrieve live**, select bodies and dates, then click **Retrieve & screen**. Trajectories appear in the explorer automatically—no generated command or manual transfer is needed.
+
+![SolarConflux explorer with two observation periods](images/gui-explorer.jpg)
+
+- Select from all **17 supported bodies**, with the Sun available as the reference origin.
+- Add up to **eight periods**, each with its own dates, cadence and body selection. Geometry settings apply across the run.
+- Screen all six alignment modes, or use **Unselect all geometries** to start a new selection.
+- Inspect trajectories with persistent body captions, play through samples, and jump to alignment windows.
+- Download individual-period CSV/metadata or one CSV covering all periods.
+- Reopen previous runs from **History**, including their trajectories, settings and results. Download a complete run backup, or delete a run with an undo option.
+
+![SolarConflux saved run history](images/gui-history.jpg)
+
+History is stored in this browser on this device. Clearing site data removes it; different site addresses have separate histories. Save a run download when you need a portable record. The bundled January 2025 example and local trajectory JSON imports also work without live retrieval.
+
+### Run locally
+
+After installing SolarConflux and its dependencies:
+
+```sh
+python scripts/build_web.py
+python -m solarconflux.server --port 8765
+```
+
+Open `http://127.0.0.1:8765/`. The first screening downloads the pinned browser Python runtime. Calculations use the same Python engine as the CLI.
+
+**GitHub Pages hosts the interface; live retrieval needs a separately hosted Python service.** JPL does not support browser cross-origin requests. The included service retrieves and transforms ephemerides; the page screens them and keeps your run history locally. See [GUI usage](docs/web_gui.md), [service and Pages deployment](deploy/README.md), and the [integrity/usability audit](docs/integrity_usability_audit.md). Deployment files are included; this does not imply that a public instance is already deployed.
+
+Created by **Emma Vellard**.
+
 ## Scientific Motivation
 
 SolarConflux helps identify time intervals when spacecraft and planetary bodies occupy geometries that may be useful for coordinated solar and heliospheric observations.

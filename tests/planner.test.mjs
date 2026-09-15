@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {newPeriod,requestKey,validatePeriod,validateSettings,screenConfig,runStatus,combinedCSV} from '../web/planner.mjs';
+const bundle=JSON.parse(fs.readFileSync(new URL('../web/example.json',import.meta.url)));
+const options={modes:['cone'],cone:20,tolerance:15,speed:400,latitude:10,angle:null};
+test('periods have independent body selections and identifiers',()=>{const a=newPeriod(),b=newPeriod(a);b.bodies.pop();b.end='2025-01-03T00:00:00Z';assert.notEqual(a.id,b.id);assert.equal(a.bodies.length,3);assert.notEqual(a.end,b.end);});
+test('cache keys change for dates, cadence and bodies but not name',()=>{const p=newPeriod();assert.equal(requestKey(p),requestKey({...p,name:'renamed'}));for(const edit of [{step:'1d'},{start:'2025-01-02T00:00:00Z'},{bodies:['Earth','Venus']}])assert.notEqual(requestKey(p),requestKey({...p,...edit}));});
+test('invalid and excessive periods are rejected before retrieval',()=>{for(const edit of [{bodies:['Earth','Sun']},{start:'2026-01-01T00:00:00Z'},{end:'2050-01-01T00:00:00Z'},{end:'2025-01-02T01:00:00Z'}])assert.throws(()=>validatePeriod({...newPeriod(),...edit}));});
+test('unselect all cannot trigger an empty screening',()=>assert.throws(()=>validateSettings({...options,modes:[]})));
+test('example cannot stand in for missing planets',()=>assert.throws(()=>screenConfig({...newPeriod(),bodies:['Earth','Mars']},options,bundle)));
+test('failures preserve partial status instead of claiming success',()=>{assert.equal(runStatus([{status:'complete'},{status:'failed'}]),'partial');assert.equal(runStatus([{status:'failed'}]),'failed');assert.equal(runStatus([{status:'cancelled'}]),'cancelled');});
+test('combined CSV distinguishes overlapping periods and escapes labels',()=>{const result={csv:'event_id,geometry,bodies\r\n',events:[{event_id:1,geometry:'cone',bodies:'Earth;Venus'}]};const text=combinedCSV([{plan:{id:'a'},label:'A, "first"',result},{plan:{id:'b'},label:'B',result}]);assert.match(text,/period_id,period_name/);assert.match(text,/"A, ""first"""/);assert.equal(text.split('\r\n').filter(Boolean).length,3);});
+test('configured subset is retained for screening',()=>{const p={...newPeriod(),bodies:['Earth','Solar Orbiter']};assert.deepEqual(screenConfig(p,options,bundle).bodies,p.bodies);});
