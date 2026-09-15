@@ -15,7 +15,9 @@ with zipfile.ZipFile(DEST / "engine.zip", "w", zipfile.ZIP_DEFLATED) as archive:
     for path in sorted((ROOT / "solarconflux").glob("*.py")):
         archive.write(path, path.relative_to(ROOT))
 (DEST / "engine-manifest.json").write_text(json.dumps({"sha256": hashlib.sha256((DEST / "engine.zip").read_bytes()).hexdigest()}))
-(DEST / "config.json").write_text(json.dumps({"retrievalUrl": os.environ.get("SOLARCONFLUX_API_URL", "")}))
+config = json.loads((ROOT / "web" / "config.json").read_text())
+config["retrievalUrl"] = os.environ.get("SOLARCONFLUX_API_URL") or config.get("retrievalUrl", "")
+(DEST / "config.json").write_text(json.dumps(config))
 html = (DEST / "index.html").read_text()
 for asset in ("app.js", "style.css", "favicon.svg"):
     digest = hashlib.sha256((DEST / asset).read_bytes()).hexdigest()[:12]

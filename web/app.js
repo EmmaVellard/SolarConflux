@@ -831,6 +831,16 @@ async function run(event) {
         throw Error(`Period ${i + 1}: ${e.message}`);
       }
     });
+    if (
+      !retrievalUrl &&
+      periods.some(
+        (p) =>
+          p.source === "live" && !(p.bundle && p.cacheKey === requestKey(p)),
+      )
+    )
+      throw Error(
+        "Live trajectories are unavailable: this website has no retrieval service connected. Use the bundled example or import a trajectory file until the service is connected.",
+      );
   } catch (error) {
     feedback(error.message, true);
     return;
@@ -905,8 +915,12 @@ async function run(event) {
     showRun(record);
     await refreshHistoryCount();
     const count = record.periods.filter((p) => p.status === "complete").length;
+    const errors = record.periods
+      .filter((p) => p.error)
+      .map((p) => `${p.label}: ${p.error}`)
+      .join(" ");
     feedback(
-      `${count} of ${record.periods.length} periods completed. ${saved ? "Saved in History." : "History could not be saved; download the available results to keep them."}${record.status === "partial" || record.status === "failed" ? " Select a period to read its result or error." : ""}`,
+      `${count} of ${record.periods.length} periods completed. ${errors ? errors + " " : ""}${saved ? "Run record saved in History." : "History could not be saved; download the available results to keep them."}`,
       !saved || record.status === "failed",
     );
   } finally {
@@ -1196,7 +1210,12 @@ async function start() {
     data = exampleData;
     displayBodies = Object.keys(data.trajectories);
     setupPlot();
-    feedback("Ready. Select periods and bodies, then retrieve & screen.");
+    feedback(
+      retrievalUrl
+        ? "Ready. Select periods and bodies, then retrieve & screen."
+        : "Live trajectories are unavailable: no retrieval service is connected. You can screen the bundled example or import a trajectory file.",
+      !retrievalUrl,
+    );
   } catch (error) {
     feedback(error.message, true);
   }
