@@ -1,4 +1,12 @@
-import { MODES, BODIES, COLORS, AU, validateBundle } from "./model.mjs";
+import {
+  MODES,
+  BODIES,
+  COLORS,
+  AU,
+  OMEGA_SUN,
+  SOURCE_SURFACE_KM,
+  validateBundle,
+} from "./model.mjs";
 import {
   newPeriod,
   requestKey,
@@ -40,6 +48,24 @@ function feedback(message, error = false) {
 }
 function dateText(time) {
   return time.replace("T", " ").replace("Z", "").split(".")[0];
+}
+function colorFor(name) {
+  // COLORS is parallel to BODIES, so every body has its own colour.
+  const index = BODIES.indexOf(name);
+  return index === -1 ? "#66776c" : COLORS[index];
+}
+// Event bounds are written "YYYY-MM-DD HH:MM:SS" with no zone, while samples are ISO UTC.
+function eventMillis(stamp) {
+  return Date.parse(stamp.replace(" ", "T") + "Z");
+}
+function windowsAt(time) {
+  // Which screened alignment windows contain this sample, so stepping through the plot shows
+  // when one window ends and another begins instead of leaving it to be inferred.
+  if (!result) return [];
+  const moment = Date.parse(time);
+  return result.events.filter(
+    (e) => eventMillis(e.start_time) <= moment && moment <= eventMillis(e.end_time),
+  );
 }
 function stopPlay() {
   clearInterval(timer);
@@ -237,6 +263,20 @@ function renderPeriods(openId = periods.at(-1)?.id) {
         );
       const group = el("fieldset", undefined, "body-fieldset");
       group.append(el("legend", "Spacecraft & planets"));
+      // Per period, because each period carries its own body selection.
+      const clearBodies = el("button", "Unselect all bodies", "inline-link");
+      clearBodies.type = "button";
+      clearBodies.onclick = () => {
+        p.bodies = [];
+        invalidate();
+        renderPeriods(p.id);
+        feedback(
+          "All bodies unselected for this period. Choose at least two before running.",
+        );
+      };
+      const bodyActions = el("div", undefined, "selection-actions");
+      bodyActions.append(clearBodies);
+      group.append(bodyActions);
       const bodyList = el("div", undefined, "body-options");
       BODIES.forEach((body) => {
         const label = el("label");
@@ -308,10 +348,15 @@ function showPeriod(index) {
     button.setAttribute("aria-pressed", String(i === index));
   result = entry.result || null;
   if (entry.bundle && entry.result) {
+    // A body excluded for having no ephemeris in the window is absent from the bundle, so the
+    // requested list cannot be used directly here.
+    const present = entry.plan.bodies.filter((b) =>
+      Object.hasOwn(entry.bundle.trajectories, b),
+    );
     data = {
       ...entry.bundle,
       trajectories: Object.fromEntries(
-        entry.plan.bodies.map((b) => [
+        present.map((b) => [
           b,
           entry.bundle.trajectories[b].filter(
             (p) =>
@@ -321,7 +366,7 @@ function showPeriod(index) {
         ]),
       ),
     };
-    displayBodies = [...entry.plan.bodies];
+    displayBodies = present;
     setupPlot();
   } else {
     data = null;
@@ -334,6 +379,7 @@ function showPeriod(index) {
       ),
     );
     $("legend").replaceChildren();
+    $("active-windows").replaceChildren();
     $("play").disabled = true;
     $("time-slider").disabled = true;
     $("sample-date").textContent = "—";
@@ -371,14 +417,26 @@ function showRun(record) {
   );
   showPeriod(0);
 }
+// Bodies need not cover the same interval, because a mission's ephemeris can begin or end
+// inside the window. The scrubber therefore walks the union of every body's sample times
+// rather than one body's array, which no body is guaranteed to span.
+function timeline() {
+  return [
+    ...new Set(
+      Object.values(data.trajectories).flatMap((points) =>
+        points.map((p) => p.time),
+      ),
+    ),
+  ].sort();
+}
 function setupPlot() {
-  const points = Object.values(data.trajectories)[0];
+  const times = timeline();
   $("time-slider").disabled = false;
   $("play").disabled = false;
-  $("time-slider").max = points.length - 1;
+  $("time-slider").max = Math.max(0, times.length - 1);
   $("time-slider").value = 0;
-  $("range-start").textContent = dateText(points[0].time);
-  $("range-end").textContent = dateText(points.at(-1).time);
+  $("range-start").textContent = dateText(times[0]);
+  $("range-end").textContent = dateText(times.at(-1));
   draw();
 }
 function svgNode(tag, attrs, text) {
@@ -389,13 +447,41 @@ function svgNode(tag, attrs, text) {
 }
 function draw() {
   if (!data) return;
-  const names = displayBodies,
-    allNames = Object.keys(data.trajectories),
-    index = Number($("time-slider").value);
-  const points = Object.values(data.trajectories)[0];
-  const time = points[index].time;
+  const allNames = Object.keys(data.trajectories),
+    times = timeline(),
+    index = Math.min(Number($("time-slider").value), times.length - 1);
+  const time = times[index];
+  // Matched by timestamp, so a body sampled only over part of the window is drawn where it
+  // actually is. Indexing every body by the same array position put truncated bodies at the
+  // wrong epoch, and ran off the end of the shorter ones.
+  const sampleAt = new Map(
+    Object.entries(data.trajectories).map(([name, points]) => [
+      name,
+      points.find((p) => p.time === time),
+    ]),
+  );
+  const names = displayBodies.filter((name) => sampleAt.get(name));
+  const absent = displayBodies.filter((name) => !sampleAt.get(name));
   $("sample-date").textContent = dateText(time) + " UTC";
-  $("sample-number").textContent = `${index + 1} / ${points.length}`;
+  $("sample-number").textContent = `${index + 1} / ${times.length}`;
+  const windows = windowsAt(time);
+  renderActiveWindows(windows, absent);
+  // Drawn only where a Parker window is actually open, and only for the bodies that window
+  // matched, so the spiral shows why those bodies are connected at this sample rather than
+  // decorating every body for the whole run.
+  const parkerBodies = new Set(
+    windows
+      .filter((e) => e.geometry === "parker" || e.geometry === "coneparker")
+      .flatMap((e) => e.bodies.split(";")),
+  );
+  const spiralSpeed = parkerBodies.size ? currentRun.settings.speed : null;
+  // The note stays visible so the convention is always documented; it reports the speed the
+  // run was screened with, falling back to the value currently in the form.
+  const notedSpeed =
+    spiralSpeed ??
+    currentRun?.settings?.speed ??
+    (Number($("speed").value) || 400);
+  $("spiral-speed").textContent = `${notedSpeed} km/s`;
   const svg = svgNode("svg", {
     viewBox: "0 0 480 390",
     role: "img",
@@ -476,7 +562,7 @@ function draw() {
   }
   const labels = [];
   names.forEach((name) => {
-    const color = COLORS[BODIES.indexOf(name) % COLORS.length];
+    const color = colorFor(name);
     const trajectory = data.trajectories[name];
     svg.append(
       svgNode("polyline", {
@@ -494,7 +580,10 @@ function draw() {
         opacity: 0.45,
       }),
     );
-    const [x, y] = position(trajectory[index]);
+    const here = sampleAt.get(name);
+    if (spiralSpeed && parkerBodies.has(name))
+      svg.append(parkerSpiral(here, color, position, spiralSpeed));
+    const [x, y] = position(here);
     labels.push({ name, x, y, color });
     svg.append(
       svgNode("line", {
@@ -584,22 +673,88 @@ function draw() {
   }
   $("orbit").replaceChildren(svg);
   $("legend").replaceChildren(
-    ...names.map((name) => {
-      const p = data.trajectories[name][index];
+    ...displayBodies.map((name) => {
+      const p = sampleAt.get(name);
       const row = el("div", undefined, "legend-entry");
       const dot = el("span", undefined, "legend-dot");
-      dot.style.background = COLORS[BODIES.indexOf(name) % COLORS.length];
+      dot.style.background = colorFor(name);
       const info = el("span", name);
       info.append(
         el(
           "small",
-          `${(p.radius_km / AU).toFixed(3)} AU · ${p.lon_deg.toFixed(1)}° lon · ${p.lat_deg.toFixed(1)}° lat`,
+          p
+            ? `${(p.radius_km / AU).toFixed(3)} AU · ${p.lon_deg.toFixed(1)}° lon · ${p.lat_deg.toFixed(1)}° lat`
+            : "outside its ephemeris coverage at this sample",
         ),
       );
+      if (!p) row.classList.add("absent");
       row.append(dot, info);
       return row;
     }),
   );
+}
+function parkerSpiral(sample, color, position, speedKmS) {
+  // The ballistic spiral through this body: a parcel now at radius r left the source surface
+  // when the footpoint was Omega*(r_body - r)/u_sw ahead in longitude, which is the same
+  // mapping check_geometry uses, read outward instead of back to the footpoint. The speed is
+  // the one the run was screened with, not the current form value, which may have moved on.
+  const points = [];
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const radius =
+      SOURCE_SURFACE_KM +
+      ((sample.radius_km - SOURCE_SURFACE_KM) * i) / steps;
+    // Radius in km over speed in km/s gives the travel time in seconds; mixing km with m/s
+    // here would wind the spiral a thousand times too tightly.
+    const lead =
+      ((OMEGA_SUN * (sample.radius_km - radius)) / speedKmS) * (180 / Math.PI);
+    points.push(
+      position({
+        radius_km: radius,
+        lat_deg: sample.lat_deg,
+        lon_deg: sample.lon_deg + lead,
+      }).join(","),
+    );
+  }
+  return svgNode("polyline", {
+    points: points.join(" "),
+    fill: "none",
+    stroke: color,
+    "stroke-width": 1.2,
+    "stroke-dasharray": "1 3",
+    opacity: 0.75,
+  });
+}
+function renderActiveWindows(windows, absent) {
+  const holder = $("active-windows");
+  holder.replaceChildren();
+  const plain = (text, cls) => {
+    const tag = el("span", undefined, cls);
+    tag.append(el("strong", text));
+    return tag;
+  };
+  if (absent.length)
+    holder.append(
+      plain(`${absent.join(", ")}: no ephemeris here`, "window-tag absent"),
+    );
+  if (!windows.length) {
+    holder.append(
+      plain(
+        result ? "No alignment at this sample" : "Screen a run to see alignments",
+        "window-tag none",
+      ),
+    );
+    return;
+  }
+  for (const e of windows) {
+    const tag = el("span", undefined, "window-tag");
+    tag.append(
+      el("strong", MODES[e.geometry] || e.geometry),
+      el("small", e.bodies.split(";").join(" + ")),
+    );
+    tag.title = `${MODES[e.geometry] || e.geometry}: ${e.start_time} → ${e.end_time}`;
+    holder.append(tag);
+  }
 }
 function renderEvents() {
   const holder = $("event-table");
@@ -657,11 +812,8 @@ function renderEvents() {
     );
     jump.addEventListener("click", () => {
       stopPlay();
-      const samples = Object.values(data.trajectories)[0];
-      const index = samples.findIndex(
-        (p) =>
-          Date.parse(p.time) >=
-          Date.parse(e.start_time.replace(" ", "T") + "Z"),
+      const index = timeline().findIndex(
+        (t) => Date.parse(t) >= eventMillis(e.start_time),
       );
       $("time-slider").value = Math.max(0, index);
       draw();

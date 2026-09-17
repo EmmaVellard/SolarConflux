@@ -218,20 +218,20 @@
               ><button class="cancel" id="cancel" type="button" hidden>
                 Cancel calculation
               </button>
+              <div
+                id="feedback"
+                class="feedback"
+                role="status"
+                aria-live="polite"
+              >
+                Choose periods and bodies, then retrieve &amp; screen.
+              </div>
               <p class="hint run-note">
                 Completed runs are saved in History on this browser.
               </p>
             </form>
           </aside>
           <div class="results-area">
-            <div
-              id="feedback"
-              class="feedback"
-              role="status"
-              aria-live="polite"
-            >
-              Choose periods and bodies, then retrieve &amp; screen.
-            </div>
             <div
               id="period-results"
               class="period-results"
@@ -262,6 +262,14 @@
                       Distances in astronomical units (AU).
                     </p>
                   </div>
+                  <div id="spiral-note" class="plot-note">
+                    <strong>Dotted: Parker spiral</strong>
+                    <p>
+                      Ballistic backmapping to the source surface at
+                      <span id="spiral-speed">400 km/s</span>, shown for the
+                      bodies matched by a Parker window at this sample.
+                    </p>
+                  </div>
                 </div>
               </div>
               <div class="scrubber">
@@ -283,6 +291,15 @@
                   </div>
                 </div>
                 <span id="sample-number" class="hint">—</span>
+              </div>
+              <div class="active-windows-row">
+                <span class="eyebrow">ALIGNED AT THIS SAMPLE</span>
+                <div
+                  id="active-windows"
+                  class="active-windows"
+                  role="status"
+                  aria-live="polite"
+                ></div>
               </div>
             </section>
             <section
@@ -356,7 +373,15 @@
         <span
           >SolarConflux <span class="muted">/</span> A clearer view of
           coordinated observations.
-          <span class="credit">Created by Emma Vellard</span></span
+          <span class="credit"
+            >Created by
+            <a
+              href="https://www.emmavellard.com"
+              target="_blank"
+              rel="noopener"
+              >Emma Vellard ↗</a
+            ></span
+          ></span
         ><span>HCI coordinates · UTC timestamps · Research prototype</span>
       </footer>
     </main>

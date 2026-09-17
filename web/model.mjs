@@ -25,15 +25,36 @@ export const BODIES = [
   "Jupiter",
   "Sun",
 ];
+// One colour per entry in BODIES, in the same order, so no two bodies can share one. Six
+// colours were cycled here before, which gave the default selection of Earth and Solar
+// Orbiter the same colour. Earth, Mars, Jupiter and the Sun take conventional hues; the rest
+// are spread across the wheel and also separated by lightness, because 17 hues alone are not
+// reliably distinguishable.
 export const COLORS = [
-  "#467b64",
-  "#c99445",
-  "#7f82b0",
-  "#bf7262",
-  "#4e91a2",
-  "#919443",
+  "#467b64", // BepiColombo — dark green
+  "#b8862f", // Solar Orbiter — bronze
+  "#7f82b0", // Europa Clipper — periwinkle
+  "#bf7262", // PSP — terracotta
+  "#4e91a2", // Stereo-A — teal
+  "#919443", // Juice — olive
+  "#8c5b8e", // Maven — plum
+  "#b5476b", // Messenger — raspberry
+  "#35617f", // Juno — steel blue
+  "#74a94e", // SDO — leaf green
+  "#a2542a", // SOHO — sienna
+  "#574b93", // ACE — violet
+  "#2b8f80", // Venus — jade
+  "#3d6bb5", // Earth — blue
+  "#b4341f", // Mars — red
+  "#6b5b3e", // Jupiter — dark bronze
+  "#d8ab50", // Sun — gold, matching the central marker
 ];
 export const AU = 149597870.7;
+// Must match the Parker defaults in solarconflux/geometries.py (sidereal 25.38 d rotation,
+// source surface at 2.5 solar radii), so the drawn spiral is the one the screening used.
+export const SOLAR_ROTATION_DAYS = 25.38;
+export const OMEGA_SUN = (2 * Math.PI) / (SOLAR_ROTATION_DAYS * 86400);
+export const SOURCE_SURFACE_KM = 2.5 * 696000;
 export function validateBundle(data) {
   if (
     data?.schema !== "solarconflux.trajectories.v1" ||

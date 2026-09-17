@@ -1109,3 +1109,94 @@ nav a[aria-current] {
   color: var(--muted);
   margin-top: 7px;
 }
+
+/* Run status now sits under the Run button inside the form, so it aligns with the form
+   gutters rather than the results column it used to live in. */
+.feedback {
+  padding: 0;
+  margin: 10px 19px 0;
+}
+.feedback.error {
+  padding: 10px 11px;
+  margin: 11px 19px 0;
+}
+/* Which alignment is on screen at the displayed sample. This is the primary readout of the
+   explorer, so it is sized to be read at a glance rather than as a caption. */
+.active-windows-row {
+  border-top: 1px solid var(--line);
+  padding: 15px 25px 20px;
+  display: grid;
+  gap: 10px;
+}
+.active-windows-row .eyebrow {
+  font-size: 10px;
+}
+.active-windows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.window-tag {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  background: #eff4e9;
+  border: 1px solid #cfe0c2;
+  border-radius: 7px;
+  color: var(--green);
+}
+.window-tag strong {
+  font:
+    700 16px Manrope,
+    sans-serif;
+  letter-spacing: -0.3px;
+}
+.window-tag small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.window-tag.none strong,
+.window-tag.absent strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.window-tag.none {
+  background: var(--cream);
+  border-color: var(--line);
+  color: var(--muted);
+}
+.window-tag.absent {
+  background: #fff5ec;
+  border-color: #f0dcc6;
+  color: #8a6538;
+}
+.legend-entry.absent {
+  opacity: 0.55;
+}
+/* The selected entry is already marked by its underline border, so hovering must not add a
+   second underline of a different weight and position on top of it. */
+nav a:hover {
+  text-decoration: none;
+}
+/* Every entry reserves the underline, so showing it on click or selection cannot shift the
+   nav text sideways. Hovering stays clean; the line is press feedback and selection state. */
+nav a {
+  border-bottom: 2px solid transparent;
+  padding-bottom: 5px;
+}
+nav a:active {
+  border-bottom-color: #557c55;
+}
+.credit {
+  font-size: 12px;
+  margin-top: 8px;
+}
+.credit a {
+  font-weight: 600;
+  border-bottom: 1px solid #b6c9b0;
+}
+.credit a:hover {
+  text-decoration: none;
+  border-bottom-color: var(--green);
+}
