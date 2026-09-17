@@ -246,8 +246,17 @@ Default Parker spiral assumptions currently include:
 | `quadrature` | Heliolongitude separation close to 90 degrees | `--tolerance` |
 | `cone` | Bodies located within a configurable longitude sector | `--cone-width` |
 | `arbitrary` | Heliolongitude separation close to a user-defined angle | `--arbitrary-angle`, `--tolerance` |
-| `parker` | Approximate Parker spiral footpoint longitude matching | `--solar-wind-speed` |
-| `coneparker` | Combined cone and Parker spiral screening | `--cone-width`, `--solar-wind-speed` |
+| `parker` | Approximate Parker spiral footpoint longitude matching | `--solar-wind-speed`, `--tolerance` |
+| `coneparker` | Combined cone and Parker spiral screening | `--cone-width`, `--solar-wind-speed`, `--tolerance` |
+
+Both Parker modes pair a footpoint-longitude test against a fixed 5 degree Parker tolerance
+with a latitude test that uses `--tolerance`. Widening `--tolerance` to loosen `opposition`
+therefore also loosens the latitude requirement in Parker modes. This is separate from
+`--latitude-tolerance`, which filters the whole matched group afterwards.
+
+Screening compares at least two bodies other than the Sun, which is the coordinate origin and
+carries no observing longitude. A run naming fewer than two such bodies is rejected rather
+than reported as "no matches".
 
 Longitude comparisons use circular angular separation. This means that values near 0 and 360 degrees are treated correctly.
 
@@ -297,6 +306,101 @@ SolarConflux currently includes metadata for the following bodies:
 
 Availability depends on JPL Horizons coverage for the selected body and date range. Some spacecraft have limited valid time windows.
 
+Run `solarconflux --list-bodies` to see each body's Horizons ID, its date range, and whether SPICE kernels are available for it.
+
+## Ephemeris Sources
+
+Trajectories can come from either of two backends, selected with `--source` on the CLI or
+`source=` in `get_trajectories`:
+
+| Source | Behaviour |
+| --- | --- |
+| `horizons` (default) | Queries JPL Horizons over the network. Covers every supported body. |
+| `spice` | Reads local SPICE kernels, downloaded on demand and cached. Works offline once cached, and is unaffected by Horizons rate limits. Fails if any requested body has no kernels. |
+| `prefer-spice` | Uses SPICE for each body that has kernels and Horizons for the rest. Lets a period mix bodies such as PSP or ACE, which have no usable SPK, with bodies that do. |
+
+Under `prefer-spice`, a body whose kernels reach only part of the window is retried against
+Horizons and the more complete series is kept. SOHO is the case that matters: its archived SPK
+stops in 2014 while Horizons still covers it, so preferring SPICE never costs samples the
+other backend would have supplied.
+
+All three return positions in the Heliocentric Inertial frame via the same SunPy transform,
+so results are directly comparable.
+
+Under `prefer-spice` the backend used for each body is recorded in `body_sources` in the
+exported bundle and in the run metadata, so a mixed run states which body came from where
+rather than leaving it ambiguous.
+
+### Kernel cache
+
+SPICE kernels are downloaded on first use into `~/.solarconflux/kernels`, or the directory
+named by `SOLARCONFLUX_KERNEL_DIR`. Only the files overlapping the requested interval are
+fetched, so a short run over one week does not pull an entire mission. Install the extra
+dependency with:
+
+```bash
+pip install "solarconflux[spice]"
+```
+
+### SPICE coverage limits
+
+SPICE cannot cover every body that Horizons does. The backend fails with an explicit message
+rather than returning a substitute:
+
+- **ACE** and **SDO** have no public SPK at all — their ephemerides are published as
+  SSCWeb/CDAWeb orbit data. Use `--source horizons` for these.
+- **Solar Orbiter** and **PSP** kernels are not mirrored by NAIF. The ESA SPICE Service and
+  APL hosts are attempted, but neither path could be verified during development, so treat
+  them as best effort. If a fetch fails, drop a `.bsp` into the cache directory for that body
+  and it will be used. `prefer-spice` falls back to Horizons for these automatically.
+- **Stereo-A** kernels at NAIF stop at 2018-12-31, are predicted rather than reconstructed
+  after 2015-01-01, and differ from Horizons by a few thousand km (~26 arcsec). Prefer
+  `--source horizons` when that matters.
+- **SOHO** kernels stop at 2014-12-01 and have a real gap from 1998-08-19 to 1998-09-25.
+- **Mars** and **Jupiter** are read from their system barycentres, because the generic
+  `de440s.bsp` carries no body centre for either. The offset is ~0.2 m for Mars and ~230 km
+  for Jupiter, far below the resolution of this screening.
+
+### Missions that do not span the whole period
+
+A body whose ephemeris starts or ends inside the requested window no longer fails the run.
+It contributes the part that is covered, and takes no part in the geometry outside it, so an
+alignment involving that body ends when its coverage does. A body with no coverage at all in
+the window is left out and the rest of the run proceeds.
+
+Every adjustment is reported rather than applied silently, on the CLI's standard output
+regardless of `--verbose`, in `coverage_notes` in the exported bundle, in the run metadata, and
+in the GUI feedback line:
+
+```
+Messenger: truncated: kept 2015-04-28 00:00 to 2015-04-30 00:00, the part within its SPICE coverage
+PSP: excluded: outside its ephemeris coverage, which starts 2018-08-12 08:16 TDB
+```
+
+If the window covers none of the requested bodies, the run fails and names the reason for each
+one, rather than reporting an empty result.
+
+Horizons refuses a request that runs past a mission's ephemeris instead of returning the
+covered part, but it names the boundary, so the query is retried against the samples inside
+it. SPICE coverage is read directly from the kernels. Bodies may therefore have different
+sample counts, though they all stay on the same cadence and sample grid so they remain
+directly comparable.
+
+### Comparing the two backends
+
+`scripts/compare_sources.py` reports the residuals between the backends and exits non-zero
+if any body falls outside tolerance:
+
+```bash
+python scripts/compare_sources.py --bodies Earth,Venus,Mars --start-time 2025-01-01 \
+    --end-time 2025-01-05 --step 1d
+```
+
+Measured agreement is at the metre level for planets and for spacecraft whose archived
+kernels are the same product Horizons serves (BepiColombo, Juice, Europa Clipper, Juno,
+Maven, SOHO): longitude residuals of order 1e-5 arcsec. Stereo-A is the one body where the
+public archive genuinely differs from Horizons.
+
 ## Outputs
 
 SolarConflux writes outputs into a date-derived folder inside the selected output directory.
@@ -312,6 +416,10 @@ results/
 ```
 
 If no matches are found, SolarConflux still writes a header-only CSV file so automated workflows have a predictable artifact.
+
+Rows are ordered by start time, then geometry, then bodies, so `event_id` depends only on the
+detected events and not on the order `--geometries` was given in. The same run screened through
+the browser GUI numbers its events identically.
 
 CSV files use a stable column order:
 
@@ -379,6 +487,14 @@ The offline tests use synthetic trajectories and do not require live Horizons ac
 The current test suite includes checks for CLI help behavior, longitude wraparound near 0 and 360 degrees, opposition detection, cone detection, arbitrary-angle detection, optional latitude filtering, CSV export, and metadata export behavior.
 
 Live Horizons checks should be treated separately because they depend on network access and external ephemeris availability.
+
+Network-dependent tests are skipped unless explicitly enabled. They cover live Horizons
+retrieval and the SPICE-versus-Horizons cross-check, and the SPICE ones download kernels on
+first run:
+
+```bash
+SOLARCONFLUX_RUN_INTEGRATION=1 pytest tests/test_integration_horizons.py tests/test_integration_spice.py
+```
 
 ## Roadmap
 

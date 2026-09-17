@@ -40,6 +40,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+spice = [
+  "spiceypy"
+]
 dev = [
   "pytest"
 ]

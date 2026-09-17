@@ -22,10 +22,26 @@ class IntegrityTests(unittest.TestCase):
     def points(self):
         return {name: [TrajectoryPoint(datetime(2025,1,1)+timedelta(hours=i),0,0,1e8) for i in range(3)] for name in ['Earth','Venus']}
 
-    def test_misaligned_timestamps_are_rejected(self):
+    def test_out_of_order_timestamps_are_rejected(self):
         t=self.points(); t['Venus'][1]=TrajectoryPoint(datetime(2025,1,2),0,0,1e8)
-        with self.assertRaisesRegex(ValueError,'matching timestamps'):
+        with self.assertRaisesRegex(ValueError,'strictly increasing for Venus'):
             Geometry(t.keys(),t)
+
+    def test_bodies_may_cover_different_intervals(self):
+        # A mission whose ephemeris ends inside the window now takes part only while it is
+        # covered, instead of failing the whole run.
+        t=self.points(); t['Venus']=t['Venus'][:2]
+        geometry=Geometry(t.keys(),t)
+        self.assertEqual([sorted(s.name for s in step) for step in geometry.states],
+                         [['Earth','Venus'],['Earth','Venus'],['Earth']])
+        self.assertEqual(geometry.coverage()['Venus'][1], datetime(2025,1,1,1))
+
+    def test_mismatched_cadence_is_rejected_on_import(self):
+        from solarconflux.browser import trajectory_bundle, load_bundle
+        t=self.points()
+        t['Venus']=[TrajectoryPoint(datetime(2025,1,1)+timedelta(hours=2*i),0,0,1e8) for i in range(3)]
+        with self.assertRaisesRegex(ValueError,'same cadence'):
+            load_bundle(trajectory_bundle(t,'2025-01-01','2025-01-02','1h'))
 
     def test_unsorted_timestamps_are_rejected(self):
         t=self.points()
@@ -55,7 +71,7 @@ class IntegrityTests(unittest.TestCase):
 
     def test_invalid_cli_parameter_fails_before_network(self):
         args=build_parser().parse_args(['--bodies','Earth,Venus','--start-time','2025-01-01','--end-time','2025-01-02','--geometries','cone','--cone-width','-1'])
-        with patch('solarconflux.cli.get_trajectories') as fetch:
+        with patch('solarconflux.cli.retrieve_trajectories') as fetch:
             with self.assertRaises(ValueError): run_from_args(args)
             fetch.assert_not_called()
 

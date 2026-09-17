@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from .angles import angular_separation_rad, target_separation_rad
@@ -90,14 +90,7 @@ class Geometry:
 
         self._validate_trajectories()
         self.states = self.calculate_states()
-        previous_time = None
         for step_states in self.states:
-            timestamps = [parse_datetime(state.time, "trajectory time") for state in step_states]
-            if any(time != timestamps[0] for time in timestamps):
-                raise ValueError("All trajectories must have matching timestamps at each step.")
-            if previous_time is not None and timestamps[0] <= previous_time:
-                raise ValueError("Trajectory timestamps must be strictly increasing.")
-            previous_time = timestamps[0]
             for state in step_states:
                 if not math.isfinite(state.lon_rad):
                     raise ValueError(f"Longitude must be finite for {state.name}.")
@@ -115,28 +108,40 @@ class Geometry:
         if missing:
             raise ValueError("Missing trajectories for: " + ", ".join(missing) + ".")
 
-        lengths = {name: len(values) for name, values in self.trajectories.items()}
-        empty = [name for name, length in lengths.items() if length == 0]
+        empty = [name for name, values in self.trajectories.items() if len(values) == 0]
         if empty:
             raise ValueError("Trajectories must not be empty: " + ", ".join(empty) + ".")
 
-        unique_lengths = set(lengths.values())
-        if len(unique_lengths) != 1:
-            details = ", ".join(f"{name}={length}" for name, length in lengths.items())
-            raise ValueError("All trajectories must have the same number of time steps: " + details + ".")
-
     def calculate_states(self) -> List[List[BodyState]]:
-        """Return normalized body states for each time step."""
-        num_steps = len(next(iter(self.trajectories.values())))
-        states: List[List[BodyState]] = []
+        """Return body states grouped by timestamp.
 
-        for step in range(num_steps):
-            step_states = []
-            for name, trajectory in self.trajectories.items():
-                step_states.append(self._extract_state(name, trajectory[step]))
-            states.append(step_states)
+        Bodies are not required to cover the same interval: a spacecraft's ephemeris can
+        begin or end partway through the requested window, in which case it simply takes no
+        part in the geometry outside its own coverage. States are therefore grouped by time
+        rather than by sample index, and a step contains only the bodies sampled at that
+        time. Each body's own timestamps must still be strictly increasing.
+        """
+        by_time: Dict[object, List[BodyState]] = {}
+        for name, trajectory in self.trajectories.items():
+            previous = None
+            for index in range(len(trajectory)):
+                state = self._extract_state(name, trajectory[index])
+                moment = parse_datetime(state.time, "trajectory time")
+                if previous is not None and moment <= previous:
+                    raise ValueError(f"Trajectory timestamps must be strictly increasing for {name}.")
+                previous = moment
+                by_time.setdefault(moment, []).append(state)
 
-        return states
+        return [by_time[moment] for moment in sorted(by_time)]
+
+    def coverage(self) -> Dict[str, Tuple[object, object]]:
+        """Return the first and last sampled time for each body."""
+        spans: Dict[str, Tuple[object, object]] = {}
+        for step_states in self.states:
+            for state in step_states:
+                first, _ = spans.get(state.name, (state.time, state.time))
+                spans[state.name] = (first, state.time)
+        return spans
 
     def calculate_angles(self) -> Tuple[List[List[float]], List[List[float]]]:
         """Return longitude and latitude arrays in radians."""
@@ -365,11 +370,28 @@ def _distance_to_km(value: object) -> float:
     return float(value)
 
 
+# Horizons reports sample times carrying about 100 microseconds of rounding noise, while a
+# SPICE time grid is exact. Timestamps must match exactly across bodies, so that noise alone
+# would reject a run whose bodies came from different backends. Only offsets below this
+# threshold are snapped, which leaves genuine sub-second sampling untouched.
+_TIMESTAMP_NOISE_US = 1000
+
+
+def _snap_to_second(moment: object) -> object:
+    if not isinstance(moment, datetime) or not moment.microsecond:
+        return moment
+    if moment.microsecond <= _TIMESTAMP_NOISE_US:
+        return moment.replace(microsecond=0)
+    if moment.microsecond >= 1_000_000 - _TIMESTAMP_NOISE_US:
+        return moment.replace(microsecond=0) + timedelta(seconds=1)
+    return moment
+
+
 def _coordinate_time(value: object) -> object:
     obstime = getattr(value, "obstime", None)
     if obstime is not None:
         if hasattr(obstime, "datetime"):
-            return obstime.datetime
+            return _snap_to_second(obstime.datetime)
         return obstime
     time_value = getattr(value, "time", None)
     if time_value is not None:

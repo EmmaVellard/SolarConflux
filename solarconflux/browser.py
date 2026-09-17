@@ -13,16 +13,31 @@ from .validation import parse_datetime
 SCHEMA = "solarconflux.trajectories.v1"
 
 
-def trajectory_bundle(trajectories, start_time, end_time, step):
+_SOURCE_LABELS = {
+    "horizons": "JPL Horizons via SunPy; transformed to HCI",
+    "spice": "SPICE kernels via spiceypy; transformed to HCI",
+    "prefer-spice": "SPICE kernels where available, otherwise JPL Horizons; transformed to HCI",
+}
+
+
+def trajectory_bundle(trajectories, start_time, end_time, step, source="horizons", provenance=None, notes=None):
     geometry = Geometry(trajectories.keys(), trajectories)
     payload = {
         "schema": SCHEMA, "frame": "HeliocentricInertial", "time_scale": "UTC",
-        "source": "JPL Horizons via SunPy; transformed to HCI",
+        "source": _SOURCE_LABELS[source],
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
         "time_precision": "UTC timestamps rounded to the nearest second after HCI conversion.",
         "requested_start": str(start_time), "requested_end": str(end_time), "step": step,
         "trajectories": {name: [] for name in trajectories},
     }
+    # Recorded whenever bodies can come from different backends, so a mixed run states which
+    # body came from where rather than leaving the reader to guess.
+    if provenance:
+        payload["body_sources"] = {name: provenance[name] for name in trajectories if name in provenance}
+    # Explains any body truncated to its ephemeris coverage or left out of the run, so a
+    # short or missing trajectory is never silent.
+    if notes:
+        payload["coverage_notes"] = dict(notes)
     for states in geometry.states:
         for s in states:
             payload["trajectories"][s.name].append({
@@ -33,8 +48,8 @@ def trajectory_bundle(trajectories, start_time, end_time, step):
     return payload
 
 
-def save_trajectory_bundle(trajectories, path, start_time, end_time, step):
-    payload = trajectory_bundle(trajectories, start_time, end_time, step)
+def save_trajectory_bundle(trajectories, path, start_time, end_time, step, source="horizons", provenance=None, notes=None):
+    payload = trajectory_bundle(trajectories, start_time, end_time, step, source=source, provenance=provenance, notes=notes)
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n")
@@ -64,11 +79,25 @@ def load_bundle(payload):
         except (KeyError, TypeError, OverflowError) as exc:
             raise ValueError("Each sample needs time, lon_deg, lat_deg, and radius_km.") from exc
     Geometry(trajectories.keys(), trajectories)
-    times = [p.time for p in next(iter(trajectories.values()))]
-    if len(times) > 2:
+    # Bodies may cover different intervals, because a mission's ephemeris can start or end
+    # inside the requested window. What must still hold is that every body samples the same
+    # uniform cadence, which is what rejects stray or misaligned timestamps now that lengths
+    # are allowed to differ.
+    cadences = set()
+    for name, points in trajectories.items():
+        times = [p.time for p in points]
+        if len(times) < 3:
+            continue
         cadence = (times[1] - times[0]).total_seconds()
         if any(abs((b - a).total_seconds() - cadence) > 1 for a, b in zip(times, times[1:])):
-            raise ValueError("Samples must have a uniform cadence; split files containing gaps before screening.")
+            raise ValueError(
+                f"Samples for {name} must have a uniform cadence; split files containing gaps before screening."
+            )
+        cadences.add(round(cadence))
+    if len(cadences) > 1:
+        raise ValueError("Every body must be sampled at the same cadence: " + ", ".join(
+            f"{name}={round((points[1].time - points[0].time).total_seconds())}s"
+            for name, points in trajectories.items() if len(points) > 1) + ".")
     return trajectories
 
 
@@ -87,9 +116,13 @@ def screen_bundle(payload, config):
     end = parse_datetime(config["end"], "end")
     if start > end:
         raise ValueError("Start must be before or equal to end.")
-    available = next(iter(trajectories.values()))
-    if start < available[0].time or end > available[-1].time:
+    # Compare against the widest span in the file: an individual body may be truncated to its
+    # own ephemeris coverage, so the first body is not necessarily representative.
+    first = min(points[0].time for points in trajectories.values())
+    last = max(points[-1].time for points in trajectories.values())
+    if start < first or end > last:
         raise ValueError("The date range must stay within the imported data coverage.")
+    available = max(trajectories.values(), key=len)
     selected = {b: [p for p in trajectories[b] if start <= p.time <= end] for b in bodies}
     parameters = build_run_parameters(config["cone"], config["tolerance"], config["angle"], config["latitude"], config["speed"])
     matches = matching_dates(config["modes"], bodies, selected, cone_width=config["cone"], tolerance=config["tolerance"], arbitrary_angle=config["angle"], latitude_tolerance_deg=config["latitude"], u_sw=config["speed"] * 1000, verbose=False)

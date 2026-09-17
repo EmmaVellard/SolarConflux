@@ -7,6 +7,8 @@ import {
   screenConfig,
   runStatus,
   combinedCSV,
+  isRetrieved,
+  backendFor,
 } from "./planner.mjs";
 import { saveRun, getRun, listRuns, deleteRun } from "./history.mjs";
 const $ = (id) => document.getElementById(id);
@@ -132,6 +134,8 @@ function renderPeriods(openId = periods.at(-1)?.id) {
       source.dataset.period = p.id;
       source.append(
         new Option("JPL Horizons · retrieve live", "live"),
+        new Option("SPICE kernels · retrieve live", "spice"),
+        new Option("SPICE where available, else Horizons", "prefer-spice"),
         new Option("Bundled January 2025 example", "example"),
         new Option("Imported trajectory file", "import"),
       );
@@ -195,7 +199,7 @@ function renderPeriods(openId = periods.at(-1)?.id) {
         ),
       );
       content.append(dates);
-      if (p.source === "live") {
+      if (isRetrieved(p.source)) {
         const spacingLabel = el("label", "Sample spacing");
         const spacing = el("select");
         spacing.dataset.period = p.id;
@@ -282,7 +286,7 @@ $("periods").addEventListener("input", (event) => {
   else if (key === "start" || key === "end")
     p[key] = target.value ? target.value + "Z" : "";
   else p[key] = target.value;
-  if (key !== "name" && p.source === "live") {
+  if (key !== "name" && isRetrieved(p.source)) {
     p.cacheKey = null;
     p.bundle = null;
   }
@@ -338,7 +342,7 @@ function showPeriod(index) {
     $("sample-number").textContent = "—";
   }
   $("source-note").textContent =
-    `${entry.label} · ${entry.plan.bodies.join(" + ")} · ${entry.plan.source === "live" ? "JPL Horizons" : entry.plan.source === "example" ? "Bundled example" : "Imported data"}${entry.cached ? " · reused retrieved data" : ""}`;
+    `${entry.label} · ${entry.plan.bodies.join(" + ")} · ${entry.plan.source === "live" ? "JPL Horizons" : entry.plan.source === "spice" ? "SPICE kernels" : entry.plan.source === "prefer-spice" ? "SPICE where available" : entry.plan.source === "example" ? "Bundled example" : "Imported data"}${entry.cached ? " · reused retrieved data" : ""}`;
   $("event-count").textContent = result ? result.events.length : "—";
   $("export-csv").disabled = !result;
   $("export-json").disabled = !result;
@@ -700,6 +704,18 @@ function busy(value) {
     $("add-period").disabled = periods.length >= 8;
   }
 }
+function warmEngine() {
+  // Started at page load so the Python runtime downloads while the form is being filled in.
+  // Screening itself takes milliseconds; without this the whole runtime fetch sat in the
+  // critical path, beginning only once the first retrieval had already finished.
+  try {
+    if (!worker) worker = new Worker("./worker.js");
+    worker.onmessage = () => {};
+    worker.postMessage({ warm: true });
+  } catch {
+    // An unavailable worker is reported when a screening is actually requested.
+  }
+}
 function screen(payload, config, signal) {
   return new Promise((resolve, reject) => {
     if (!worker) worker = new Worker("./worker.js");
@@ -726,6 +742,9 @@ function screen(payload, config, signal) {
         feedback(reply.message);
         return;
       }
+      // A warm-up acknowledgement can still be in flight when a run starts, and must not be
+      // mistaken for a result: falling through would resolve the run with no events.
+      if (reply.type === "warm") return;
       if (reply.type === "error") finish(Error(reply.message));
       else finish(null, reply.result);
     };
@@ -766,6 +785,7 @@ async function obtain(p, signal) {
         start: p.start,
         end: p.end,
         step: p.step,
+        source: backendFor(p.source),
       }),
       signal: combined,
     });
@@ -835,7 +855,7 @@ async function run(event) {
       !retrievalUrl &&
       periods.some(
         (p) =>
-          p.source === "live" && !(p.bundle && p.cacheKey === requestKey(p)),
+          isRetrieved(p.source) && !(p.bundle && p.cacheKey === requestKey(p)),
       )
     )
       throw Error(
@@ -846,7 +866,6 @@ async function run(event) {
     return;
   }
   stopPlay();
-  busy(true);
   controller = new AbortController();
   const signal = controller.signal;
   const token = ++runToken;
@@ -873,6 +892,10 @@ async function run(event) {
   $("event-count").textContent = "—";
   $("period-results").replaceChildren();
   renderEvents();
+  // Disabling the form is paired with the finally below. Anything that can throw must stay
+  // outside that pair, or a failure here would leave every control -- including Add period
+  // -- disabled until the page is reloaded.
+  busy(true);
   try {
     for (let i = 0; i < periods.length; i++) {
       const p = periods[i],
@@ -888,8 +911,9 @@ async function run(event) {
         if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
         entry.bundle = obtained.bundle;
         entry.cached = obtained.cached;
+        entry.coverageNotes = obtained.bundle.coverage_notes || null;
         p.bundle = obtained.bundle;
-        if (p.source === "live") p.cacheKey = requestKey(p);
+        if (isRetrieved(p.source)) p.cacheKey = requestKey(p);
         const c = screenConfig(p, options, entry.bundle);
         feedback(`${entry.label}: screening ${p.bodies.length} bodies…`);
         entry.result = await screen(entry.bundle, c, signal);
@@ -919,14 +943,26 @@ async function run(event) {
       .filter((p) => p.error)
       .map((p) => `${p.label}: ${p.error}`)
       .join(" ");
+    // Truncated or excluded bodies must be stated, never silently dropped.
+    const coverage = record.periods
+      .filter((p) => p.coverageNotes)
+      .flatMap((p) =>
+        Object.entries(p.coverageNotes).map(
+          ([body, note]) => `${p.label}: ${body} ${note}`,
+        ),
+      )
+      .join(" ");
     feedback(
-      `${count} of ${record.periods.length} periods completed. ${errors ? errors + " " : ""}${saved ? "Run record saved in History." : "History could not be saved; download the available results to keep them."}`,
+      `${count} of ${record.periods.length} periods completed. ${errors ? errors + " " : ""}${coverage ? coverage + " " : ""}${saved ? "Run record saved in History." : "History could not be saved; download the available results to keep them."}`,
       !saved || record.status === "failed",
     );
   } finally {
     busy(false);
     controller = null;
     renderPeriods(null);
+    // Cancelling or timing out terminates the worker, discarding the interpreter. Rebuild it
+    // now, while nothing is in flight, so the next run does not pay initialisation again.
+    if (!worker) warmEngine();
   }
 }
 async function refreshHistoryCount() {
@@ -1052,7 +1088,7 @@ function restoreRun(full) {
   periods = full.periods.map((e) => ({
     ...structuredClone(e.plan),
     bundle: structuredClone(e.bundle),
-    cacheKey: e.plan.source === "live" && e.bundle ? requestKey(e.plan) : null,
+    cacheKey: isRetrieved(e.plan.source) && e.bundle ? requestKey(e.plan) : null,
   }));
   renderPeriods(null);
   showRun(full);
@@ -1221,3 +1257,4 @@ async function start() {
   }
 }
 start();
+warmEngine();

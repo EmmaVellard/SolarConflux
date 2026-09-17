@@ -43,6 +43,17 @@ async function getRuntime() {
   }
 }
 self.onmessage = async ({ data }) => {
+  // Warming only primes the interpreter. getRuntime memoises it, so fetching the ~20 MB
+  // Pyodide runtime overlaps with the user filling in the form rather than landing in the
+  // critical path after they press Run. A failure here is deliberately swallowed: the real
+  // screening call retries and reports properly.
+  if (data.warm) {
+    try {
+      await getRuntime();
+    } catch {}
+    self.postMessage({ type: "warm" });
+    return;
+  }
   try {
     const py = await getRuntime();
     py.globals.set("payload_json", JSON.stringify(data.payload));

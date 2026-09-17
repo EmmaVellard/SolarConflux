@@ -38,6 +38,15 @@ def matching_dates(
     backward-compatible radian inputs.
     """
     bodies = validate_body_names(spacecraft_names)
+    # The Sun is the coordinate origin and carries no observing longitude, so it never
+    # contributes to a separation. Without this, a run naming one body (or only the Sun and
+    # one body) reports zero matches, which reads as a scientific result rather than an
+    # undefined request.
+    if len([body for body in bodies if body != "Sun"]) < 2:
+        raise ValueError(
+            "Geometry screening needs at least two bodies other than the Sun, which is the "
+            "coordinate origin; got: " + ", ".join(bodies) + "."
+        )
     modes = normalize_geometry_choices(geometry_choices)
     cone_width_rad = validate_positive_angle(
         _angle_to_radians(cone_width, angle_unit, "cone_width"),

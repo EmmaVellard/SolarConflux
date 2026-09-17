@@ -27,6 +27,20 @@ _GEOMETRY_ALIASES = {
 
 _STEP_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|m|min|minute|minutes|h|hr|hour|hours|d|day|days)\s*$")
 
+_STEP_UNIT_SECONDS = {
+    "s": 1.0, "sec": 1.0, "second": 1.0, "seconds": 1.0,
+    "m": 60.0, "min": 60.0, "minute": 60.0, "minutes": 60.0,
+    "h": 3600.0, "hr": 3600.0, "hour": 3600.0, "hours": 3600.0,
+    "d": 86400.0, "day": 86400.0, "days": 86400.0,
+}
+
+SUPPORTED_SOURCES = ("horizons", "spice", "prefer-spice")
+
+_SOURCE_ALIASES = {
+    "spice-where-available": "prefer-spice",
+    "prefer_spice": "prefer-spice",
+}
+
 
 def parse_datetime(value: object, name: str) -> datetime:
     """Parse a date/time value using Python's ISO-like datetime parser."""
@@ -70,6 +84,25 @@ def validate_step(step: object) -> str:
     if value <= 0 or not math.isfinite(value):
         raise ValueError("step must be positive and finite.")
     return text
+
+
+def step_to_seconds(step: object) -> float:
+    """Return a validated time step as a number of seconds."""
+    text = validate_step(step)
+    match = _STEP_PATTERN.match(text)
+    return float(match.group(1)) * _STEP_UNIT_SECONDS[match.group(2)]
+
+
+def validate_source(source: object) -> str:
+    """Validate the trajectory source backend name."""
+    if source is None:
+        return "horizons"
+    normalized = str(source).strip().lower()
+    normalized = _SOURCE_ALIASES.get(normalized, normalized)
+    if normalized not in SUPPORTED_SOURCES:
+        supported = ", ".join(SUPPORTED_SOURCES)
+        raise ValueError(f"Unsupported trajectory source '{source}'. Supported sources are: {supported}.")
+    return normalized
 
 
 def normalize_geometry_choices(choices: Union[str, Iterable[str]]) -> List[str]:

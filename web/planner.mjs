@@ -1,5 +1,11 @@
 import { BODIES, MODES, validateBundle } from "./model.mjs";
 export const STEP_SECONDS = { "1h": 3600, "6h": 21600, "1d": 86400 };
+// These sources all retrieve from the service and differ only in the ephemeris backend it
+// uses, so they share every date, spacing and sample-count rule.
+export const RETRIEVED_SOURCES = ["live", "spice", "prefer-spice"];
+export const isRetrieved = (source) => RETRIEVED_SOURCES.includes(source);
+export const backendFor = (source) =>
+  source === "spice" ? "spice" : source === "prefer-spice" ? "prefer-spice" : "horizons";
 export function newPeriod(previous) {
   return {
     id: crypto.randomUUID(),
@@ -21,6 +27,7 @@ export function requestKey(period) {
     period.end,
     period.step,
     [...period.bodies].sort(),
+    backendFor(period.source),
   ]);
 }
 export function validatePeriod(p) {
@@ -38,9 +45,9 @@ export function validatePeriod(p) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end)
     throw Error("Start must be earlier than end.");
   if (!STEP_SECONDS[p.step]) throw Error("Choose a valid sample spacing.");
-  if (!["live", "example", "import"].includes(p.source))
+  if (!["live", "spice", "prefer-spice", "example", "import"].includes(p.source))
     throw Error("Choose a trajectory source.");
-  if (p.source === "live") {
+  if (isRetrieved(p.source)) {
     if (
       new Date(start).getUTCFullYear() < 1900 ||
       new Date(end).getUTCFullYear() > 2100
@@ -80,20 +87,29 @@ export function validateSettings(s) {
 }
 export function screenConfig(p, settings, bundle) {
   validateBundle(bundle);
+  const notes = bundle.coverage_notes || {};
   const absent = p.bodies.filter((b) => !Object.hasOwn(bundle.trajectories, b));
-  if (absent.length)
+  // A body the retrieval explained as outside its ephemeris coverage is dropped rather than
+  // failing the period; one that is simply missing from an example or imported file is not.
+  const unexplained = absent.filter((b) => !notes[b]);
+  if (unexplained.length)
     throw Error(
-      `This dataset does not include ${absent.join(", ")}. Choose JPL Horizons to retrieve these bodies.`,
+      `This dataset does not include ${unexplained.join(", ")}. Choose JPL Horizons to retrieve these bodies.`,
     );
-  const times = Object.values(bundle.trajectories)[0];
-  if (
-    Date.parse(p.start) < Date.parse(times[0].time) ||
-    Date.parse(p.end) > Date.parse(times.at(-1).time)
-  )
+  const bodies = p.bodies.filter((b) => Object.hasOwn(bundle.trajectories, b));
+  if (bodies.filter((b) => b !== "Sun").length < 2)
+    throw Error(
+      `Only ${bodies.join(", ") || "no bodies"} remain after excluding bodies outside their ephemeris coverage; at least two are needed.`,
+    );
+  // Take the widest span present, since an individual body may be truncated to its coverage.
+  const spans = Object.values(bundle.trajectories).filter((v) => v.length);
+  const first = Math.min(...spans.map((v) => Date.parse(v[0].time)));
+  const last = Math.max(...spans.map((v) => Date.parse(v.at(-1).time)));
+  if (Date.parse(p.start) < first || Date.parse(p.end) > last)
     throw Error(
       "This period extends beyond the dataset. Choose JPL Horizons or use dates within its coverage.",
     );
-  return { ...settings, bodies: [...p.bodies], start: p.start, end: p.end };
+  return { ...settings, bodies, start: p.start, end: p.end };
 }
 export function runStatus(periods) {
   if (periods.every((p) => p.status === "complete")) return "complete";

@@ -193,5 +193,25 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(len(matches), 1)
 
 
+class MinimumComparableBodiesTests(unittest.TestCase):
+    """A separation needs two bodies, and the Sun is the origin rather than one of them.
+
+    Such a request used to report zero matches, which reads as "no alignments found"
+    instead of "this question is not defined".
+    """
+
+    def trajectories(self, names):
+        return {name: [point(0, 0.0)] for name in names}
+
+    def test_fewer_than_two_bodies_besides_the_sun_is_rejected(self):
+        for names in (["Earth"], ["Sun"], ["Sun", "Earth"]):
+            with self.subTest(names=names), self.assertRaisesRegex(ValueError, "at least two bodies"):
+                matching_dates(["cone"], names, self.trajectories(names), verbose=False)
+
+    def test_two_real_bodies_are_accepted_alongside_the_sun(self):
+        names = ["Sun", "Earth", "Venus"]
+        matching_dates(["cone"], names, self.trajectories(names), verbose=False)
+
+
 if __name__ == "__main__":
     unittest.main()

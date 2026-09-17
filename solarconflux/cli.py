@@ -11,12 +11,13 @@ from .bodies import get_infos, horizons_ids_for_bodies, validate_body_names
 from .export import save_match, save_run_metadata
 from .functions import build_run_parameters, matching_dates
 from .plotting import save_plot
-from .trajectories import get_info, get_trajectories
+from .trajectories import get_info, retrieve_trajectories
 from .browser import save_trajectory_bundle
 from .validation import (
     normalize_geometry_choices,
     validate_date_range,
     validate_optional_latitude_tolerance_degrees,
+    validate_source,
     validate_step,
 )
 
@@ -40,6 +41,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start-time", help="Start time, for example 2025-01-01 or 2025-01-01 12:00.")
     parser.add_argument("--end-time", help="End time, for example 2025-12-31.")
     parser.add_argument("--step", default="60m", help="Horizons time step, for example 60m, 1h, or 1d.")
+    parser.add_argument(
+        "--source",
+        choices=["horizons", "spice", "prefer-spice"],
+        default="horizons",
+        help="Ephemeris backend: horizons, spice, or prefer-spice (SPICE per body where available, Horizons otherwise).",
+    )
     parser.add_argument(
         "--geometries",
         help="Comma-separated modes: opposition, quadrature, cone, arbitrary, parker, coneparker.",
@@ -112,6 +119,7 @@ def run_from_args(args: argparse.Namespace) -> None:
     geometries = normalize_geometry_choices(args.geometries)
     validate_date_range(args.start_time, args.end_time)
     step = validate_step(args.step)
+    source = validate_source(getattr(args, "source", "horizons"))
     latitude_tolerance_deg = validate_optional_latitude_tolerance_degrees(args.latitude_tolerance)
     plot_formats = _parse_plot_formats(args.plot_format)
 
@@ -137,8 +145,16 @@ def run_from_args(args: argparse.Namespace) -> None:
         validate_non_negative_angle(angle_to_radians(args.arbitrary_angle, "deg", "arbitrary_angle"), "arbitrary_angle")
 
     if args.verbose:
-        print("Fetching trajectories...")
-    trajectories = get_trajectories(bodies, args.start_time, args.end_time, step)
+        print(f"Fetching trajectories from {source}...")
+    trajectories, provenance, notes = retrieve_trajectories(bodies, args.start_time, args.end_time, step, source=source)
+
+    # A body whose ephemeris does not reach into the window is left out by the backend, so it
+    # must also leave the screened list. Reported unconditionally, because a truncated or
+    # absent body changes which alignments are found and must never pass unnoticed.
+    for body in bodies:
+        if body in notes:
+            print(f"{body}: {notes[body]}")
+    bodies = [body for body in bodies if body in trajectories]
 
     if args.verbose:
         print("Looking for matching dates...")
@@ -158,14 +174,14 @@ def run_from_args(args: argparse.Namespace) -> None:
     csv_path = save_match(matches, output_dir, parameters=parameters)
     output_files = [csv_path]
     if getattr(args, "export_trajectories", False):
-        output_files.append(save_trajectory_bundle(trajectories, csv_path.parent / "trajectories.json", args.start_time, args.end_time, step))
+        output_files.append(save_trajectory_bundle(trajectories, csv_path.parent / "trajectories.json", args.start_time, args.end_time, step, source=source, provenance=provenance, notes=notes))
 
     if args.save_plots:
         output_files.extend(save_plot(matches, trajectories, output_dir, formats=plot_formats))
 
     save_run_metadata(
         csv_path.parent,
-        parameters={**parameters, "step": step, "geometries": geometries, "start_time": args.start_time, "end_time": args.end_time, "frame": "HeliocentricInertial", "time_scale": "UTC", "parker_tolerance_degrees": 5.0, "solar_rotation_period_days": 25.38, "source_surface_radius_km": 1740000.0},
+        parameters={**parameters, "step": step, "geometries": geometries, "start_time": args.start_time, "end_time": args.end_time, "frame": "HeliocentricInertial", "time_scale": "UTC", "trajectory_source": source, "body_sources": provenance, "coverage_notes": notes, "parker_tolerance_degrees": 5.0, "solar_rotation_period_days": 25.38, "source_surface_radius_km": 1740000.0},
         body_list=bodies,
         horizons_ids=horizons_ids_for_bodies(bodies),
         package_version=__version__,
@@ -188,6 +204,8 @@ def run_interactive() -> int:
 
     step_choice = input("\nChoose the time step? y/n (default: 60m): ").strip().lower()
     step = input("Enter the time step (e.g., 60m): ").strip() if step_choice == "y" else "60m"
+
+    source = input("\nEphemeris source, horizons, spice or prefer-spice (default: horizons): ").strip().lower() or "horizons"
 
     print("\nAvailable geometric alignments: opposition, cone, quadrature, arbitrary, parker, coneparker")
     geometries = input("Enter alignment types (comma-separated): ").strip()
@@ -216,6 +234,7 @@ def run_interactive() -> int:
         start_time=start_time,
         end_time=end_time,
         step=step,
+        source=source,
         geometries=geometries,
         cone_width=10.0,
         tolerance=10.0,
@@ -237,13 +256,32 @@ def _has_noninteractive_args(args: argparse.Namespace) -> bool:
 
 def print_supported_bodies() -> None:
     """Print supported body metadata for CLI users."""
+    from .spice import (EXTERNAL_ARCHIVES, PARTIAL_COVERAGE, UNSUPPORTED_BODIES, kernel_dir,
+                        spice_supported_bodies)
+
+    available = set(spice_supported_bodies())
     print("Supported bodies:\n")
-    print(f"{'Body':<16} {'Horizons ID':<22} {'Available date range'}")
-    print(f"{'-' * 16} {'-' * 22} {'-' * 20}")
+    print(f"{'Body':<16} {'Horizons ID':<19} {'SPICE':<11} {'Available date range'}")
+    print(f"{'-' * 16} {'-' * 19} {'-' * 11} {'-' * 20}")
     for body, info in get_infos().items():
-        horizons_id = str(info["id"])
+        if body in UNSUPPORTED_BODIES:
+            spice_state = "no kernels"
+        elif body in EXTERNAL_ARCHIVES:
+            spice_state = "external"
+        elif body in PARTIAL_COVERAGE:
+            spice_state = "partial"
+        elif body in available:
+            spice_state = "yes"
+        else:
+            spice_state = "no"
         date_range = f"{info['start']} to {info['end']}"
-        print(f"{body:<16} {horizons_id:<22} {date_range}")
+        print(f"{body:<16} {str(info['id']):<19} {spice_state:<11} {date_range}")
+    print("\nDate ranges above describe Horizons coverage. SPICE notes:")
+    for body, reason in {**UNSUPPORTED_BODIES, **PARTIAL_COVERAGE}.items():
+        print(f"- {body}: {reason}")
+    for body, archive in EXTERNAL_ARCHIVES.items():
+        print(f"- {body}: kernels are not mirrored by NAIF. {archive} is attempted but unverified; "
+              f"if it fails, place a .bsp in the body's folder under {kernel_dir()}")
 
 
 def _parse_plot_formats(value: Optional[str]) -> List[str]:

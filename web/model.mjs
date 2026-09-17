@@ -75,12 +75,6 @@ export function validateBundle(data) {
     if (times.some((t, i) => i && t <= times[i - 1]))
       throw Error("Sample timestamps must be strictly increasing.");
     if (
-      reference &&
-      (reference.length !== times.length ||
-        times.some((t, i) => t !== reference[i]))
-    )
-      throw Error("Every body must use the same timestamps.");
-    if (
       times.length > 2 &&
       times
         .slice(2)
@@ -91,7 +85,18 @@ export function validateBundle(data) {
       throw Error(
         "Samples must have uniform spacing. Split files containing gaps.",
       );
-    reference = times;
+    // Bodies need not cover the same interval, because a mission's ephemeris can begin or
+    // end inside the requested window; such a body simply takes no part in the geometry
+    // outside its own coverage. They must still share a cadence and sit on a common grid,
+    // which is what still rejects misaligned samples.
+    if (reference && times.length > 1 && reference.length > 1) {
+      const cadence = times[1] - times[0];
+      if (Math.abs(cadence - (reference[1] - reference[0])) > 1000)
+        throw Error("Every body must be sampled at the same cadence.");
+      if (Math.abs((times[0] - reference[0]) % cadence) > 1000)
+        throw Error("Every body must sit on the same sample grid.");
+    }
+    if (!reference || times.length > reference.length) reference = times;
   }
   return data;
 }

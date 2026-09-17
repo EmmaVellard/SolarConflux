@@ -96,7 +96,10 @@ def _flatten_entries(
         for entry in entries:
             start, end, bodies = entry
             combined.append((start, end, geometry, list(bodies), getattr(entry, "latitude_span_deg", "")))
-    return sorted(combined, key=lambda row: row[0])
+    # Ties on start time are broken by geometry then bodies so that event_id depends only on
+    # the science, not on the order the modes happened to be requested in. This is the same
+    # ordering the browser export uses, so both paths number the same run identically.
+    return sorted(combined, key=lambda row: (row[0], row[2], ";".join(row[3])))
 
 
 def _output_folder_name(rows: List[Tuple[str, str, str, List[str], Any]]) -> str:

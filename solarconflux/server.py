@@ -19,8 +19,8 @@ from urllib.parse import urlsplit
 
 from .bodies import validate_body_names
 from .browser import trajectory_bundle
-from .trajectories import get_trajectories
-from .validation import parse_datetime
+from .trajectories import retrieve_trajectories
+from .validation import parse_datetime, validate_source
 
 STEPS = {"1h": 3600, "6h": 21600, "1d": 86400}
 MAX_SAMPLES = 5000
@@ -35,8 +35,12 @@ CACHE_TTL = 86400
 
 
 def validate_request(payload):
+    source = "horizons"
+    if isinstance(payload, dict) and "source" in payload:
+        source = validate_source(payload["source"])
+        payload = {k: v for k, v in payload.items() if k != "source"}
     if not isinstance(payload, dict) or set(payload) != {"bodies", "start", "end", "step"}:
-        raise ValueError("Provide bodies, start, end and step only.")
+        raise ValueError("Provide bodies, start, end, step and an optional source only.")
     if not isinstance(payload["bodies"], list) or not all(isinstance(b, str) for b in payload["bodies"]):
         raise ValueError("Bodies must be a list of supported names.")
     bodies = validate_body_names(payload["bodies"])
@@ -54,11 +58,29 @@ def validate_request(payload):
         raise ValueError("The interval must be a whole number of sample steps.")
     if samples > MAX_SAMPLES or samples * len(bodies) > MAX_TOTAL_SAMPLES:
         raise ValueError("Use a shorter period or wider spacing (5,000 samples per body; 50,000 total per period).")
-    return {"bodies": bodies, "start": start.isoformat(), "end": end.isoformat(), "step": payload["step"]}
+    return {"bodies": bodies, "start": start.isoformat(), "end": end.isoformat(),
+            "step": payload["step"], "source": source}
 
 
 class ServiceBusy(Exception):
     pass
+
+
+def _is_upstream_outage(exc):
+    """Report whether a failure looks like a transport problem rather than a bad request.
+
+    Only outages justify the shared backoff. A request that is deterministically bad (an
+    unknown body, or dates outside a mission's coverage) fails identically on retry, so
+    penalising every other caller for 60 seconds just hides unrelated working requests.
+    """
+    seen = set()
+    current = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, OSError):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def retrieve(payload):
@@ -78,19 +100,25 @@ def retrieve(payload):
             del _CACHE[key]
         if now < _BACKOFF_UNTIL:
             raise ServiceBusy("Horizons is temporarily unavailable. Please try again in a minute.")
+        source = request["source"]
         # Sun is the origin of HCI; Horizons rejects a target equal to its center.
         names = [b for b in request["bodies"] if b != "Sun"]
         try:
-            trajectories = get_trajectories(names, request["start"], request["end"], request["step"])
+            trajectories, provenance, notes = retrieve_trajectories(names, request["start"], request["end"], request["step"], source=source)
+        except ValueError:
+            # A rejected body (for example ACE or SDO under SPICE) is a bad request, not an
+            # upstream failure, so it must not be reported as a gateway error or backed off.
+            raise
         except Exception as exc:
-            logging.exception("Horizons retrieval failed for %s", names)
-            _BACKOFF_UNTIL = time.monotonic() + 60
-            raise RuntimeError(f"{exc} Check mission coverage for the selected dates; Horizons may also be temporarily unavailable.") from exc
-        bundle = trajectory_bundle(trajectories, request["start"], request["end"], request["step"])
+            logging.exception("%s retrieval failed for %s", source, names)
+            if _is_upstream_outage(exc):
+                _BACKOFF_UNTIL = time.monotonic() + 60
+            raise RuntimeError(f"{exc} Check mission coverage for the selected dates; the ephemeris source may also be temporarily unavailable.") from exc
+        bundle = trajectory_bundle(trajectories, request["start"], request["end"], request["step"], source=source, provenance=provenance, notes=notes)
         if "Sun" in request["bodies"]:
             samples = next(iter(bundle["trajectories"].values()))
             bundle["trajectories"]["Sun"] = [{"time": p["time"], "lon_deg": 0.0, "lat_deg": 0.0, "radius_km": 0.0} for p in samples]
-        bundle["retrieval_method"] = "SolarConflux retrieval service / SunPy get_horizons_coord"
+        bundle["retrieval_method"] = f"SolarConflux retrieval service / {source}"
         bundle["sun_convention"] = "Sun is the HCI origin, not an independent longitude measurement."
         from .browser import load_bundle
         load_bundle(bundle)

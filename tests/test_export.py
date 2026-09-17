@@ -77,5 +77,30 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(metadata["generated_output_filenames"], ["plot.png", "results.csv"])
 
 
+class EventOrderingTests(unittest.TestCase):
+    """event_id must follow the science, not the order the modes happened to be requested."""
+
+    ENTRIES = {
+        "cone": [MatchEntry("2025-01-01 00:00:00", "2025-02-03 00:00:00", ["Earth", "Mars"])],
+        "arbitrary": [MatchEntry("2025-01-01 00:00:00", "2025-01-24 00:00:00", ["Earth", "Venus"])],
+    }
+
+    def rows(self, entries):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_path = save_match(entries, tmpdir)
+            with csv_path.open() as handle:
+                return [(row["event_id"], row["geometry"], row["bodies"]) for row in csv.DictReader(handle)]
+
+    def test_requesting_the_same_modes_in_either_order_numbers_events_identically(self):
+        reversed_order = {key: self.ENTRIES[key] for key in reversed(list(self.ENTRIES))}
+        self.assertEqual(self.rows(dict(self.ENTRIES)), self.rows(reversed_order))
+
+    def test_events_sharing_a_start_time_are_ordered_by_geometry_then_bodies(self):
+        self.assertEqual(
+            self.rows(self.ENTRIES),
+            [("1", "arbitrary", "Earth;Venus"), ("2", "cone", "Earth;Mars")],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
