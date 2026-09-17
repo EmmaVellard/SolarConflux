@@ -31,9 +31,52 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-  deploy:
+  # The retrieval service is hosted separately, so pushing used to update only the page. A
+  # page that asks for a field the running service rejects fails every retrieval, so the
+  # service is brought to this commit first and Pages waits for it. The reverse order is safe
+  # -- the service still accepts requests from an older page -- which is why this runs first.
+  service:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the retrieval service deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "No RENDER_DEPLOY_HOOK secret set: skipping. Redeploy the retrieval service by hand, or it will keep serving an older build."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" -o /dev/null
+          echo "Deploy triggered."
+      - name: Wait for the service to serve this commit's request contract
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+          API: ${{ vars.SOLARCONFLUX_API_URL }}
+        run: |
+          if [ -z "$HOOK" ] || [ -z "$API" ]; then
+            echo "Nothing to wait for."
+            exit 0
+          fi
+          # One body plus a source field. The current service answers "Select at least two
+          # bodies"; a build predating the source field rejects the payload outright. Either
+          # way the request is refused before any ephemeris is fetched, so JPL is never called.
+          probe='{"bodies":["Earth"],"start":"2025-01-01T00:00:00Z","end":"2025-01-02T00:00:00Z","step":"1d","source":"horizons"}'
+          for attempt in $(seq 1 40); do
+            answer=$(curl -sS -m 90 -X POST "$API" -H 'Content-Type: application/json' -d "$probe" || true)
+            case "$answer" in
+              *"Provide bodies"*) echo "attempt $attempt: still the previous build" ;;
+              "") echo "attempt $attempt: no answer yet (a free instance may be waking up)" ;;
+              *) echo "Service is current."; exit 0 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::The retrieval service did not reach this commit in time, so Pages was not updated. Check the service logs and re-run this workflow."
+          exit 1
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [build, service]
     runs-on: ubuntu-latest
     permissions:
       pages: write
