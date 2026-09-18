@@ -147,7 +147,13 @@ SolarConflux has the following known limitations:
 - it uses simplified geometric and ballistic assumptions
 - Parker spiral results depend strongly on solar wind speed and sign convention
 - latitude filtering is a simple geometric screen
-- Horizons availability depends on body and date range
+- the Parker modes additionally require the compared latitudes to agree within the general
+  angular tolerance, so that tolerance affects them as well as the longitude-only modes
+- ephemeris availability depends on body and date range, and differs between the two backends:
+  SPICE has no public kernels for some bodies and narrower coverage for others
+- a body whose ephemeris covers only part of the requested window contributes only the covered
+  part, so an alignment involving it ends where its coverage ends rather than where the
+  geometry ends; every such adjustment is reported in the run metadata
 - output plots are intended for inspection and may need refinement for publication figures
 
 ## Appropriate Scientific Interpretation

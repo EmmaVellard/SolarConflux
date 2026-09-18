@@ -17,14 +17,17 @@ It is designed for transparent scientific screening: clear inputs, explicit assu
 
 ## Browser GUI
 
-Plan and screen observations directly in the page. Choose **JPL Horizons · retrieve live**, select bodies and dates, then click **Retrieve & screen**. Trajectories appear in the explorer automatically—no generated command or manual transfer is needed.
+Plan and screen observations directly in the page. Pick a trajectory source, select bodies and dates, then click **Retrieve & screen**. Trajectories appear in the explorer automatically—no generated command or manual transfer is needed.
 
 ![SolarConflux explorer with two observation periods](images/gui-explorer.jpg)
 
-- Select from all **17 supported bodies**, with the Sun available as the reference origin.
+- Retrieve from **JPL Horizons**, from **SPICE kernels**, or with **SPICE where available, else Horizons**, which lets one period mix bodies such as PSP or ACE that have no usable SPK with bodies that do.
+- Select from all **17 supported bodies**, with the Sun available as the reference origin. Each body has its own colour in the plot and legend.
 - Add up to **eight periods**, each with its own dates, cadence and body selection. Geometry settings apply across the run.
-- Screen all six alignment modes, or use **Unselect all geometries** to start a new selection.
-- Inspect trajectories with persistent body captions, play through samples, and jump to alignment windows.
+- Screen all six alignment modes. **Unselect all geometries**, or a period's **Unselect all bodies**, starts a selection over.
+- Inspect trajectories with persistent body captions, play through samples, and jump to alignment windows. A readout under the plot names the alignment windows containing the displayed sample, so entering and leaving one is explicit.
+- When a Parker or cone-Parker window is open, the plot draws each matched body's ballistic backmapping path to the source surface as a dotted curve. It is a flow path under one constant wind speed, not a modelled field line.
+- A body whose ephemeris covers only part of a period is marked where it has no sample instead of being drawn at the wrong time, and the reason is stated in the run feedback.
 - Download individual-period CSV/metadata or one CSV covering all periods.
 - Reopen previous runs from **History**, including their trajectories, settings and results. Download a complete run backup, or delete a run with an undo option.
 
@@ -168,6 +171,7 @@ trajectories = get_trajectories(
     "2025-01-01",
     "2025-03-01",
     "60m",
+    source="horizons",  # or "spice", or "prefer-spice"
 )
 
 matches = matching_dates(
@@ -185,6 +189,31 @@ save_match(matches, "results")
 ```
 
 Public angle inputs default to degrees. The lower-level geometry implementation uses radians internally.
+
+`matching_dates` compares at least two bodies other than the Sun, which is the coordinate
+origin and carries no observing longitude; a shorter list is rejected rather than returned as
+an empty result.
+
+Use `retrieve_trajectories` instead of `get_trajectories` when it matters which backend served
+each body, or whether any body was adjusted to its ephemeris coverage:
+
+```python
+from solarconflux.trajectories import retrieve_trajectories
+
+trajectories, body_sources, coverage_notes = retrieve_trajectories(
+    ["Earth", "Venus", "PSP"],
+    "2022-01-01",
+    "2022-01-06",
+    "1d",
+    source="prefer-spice",
+)
+# body_sources   -> {"Earth": "spice", "Venus": "spice", "PSP": "horizons"}
+# coverage_notes -> reasons for any body truncated to, or left out for lack of, coverage
+```
+
+A body named in `coverage_notes` but absent from `trajectories` was excluded. Bodies may
+therefore have different sample counts, though they stay on the same cadence and sample grid,
+so they remain directly comparable.
 
 ## Example Workflow
 

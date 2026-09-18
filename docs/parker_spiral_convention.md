@@ -36,6 +36,19 @@ Under the current implementation convention, larger radial distances produce lar
 shifts for fixed solar wind speed, and faster solar wind speeds produce smaller longitude shifts
 for fixed radial distance.
 
+Both Parker modes apply a second condition alongside the 5 degree footpoint tolerance: the two
+bodies' heliographic latitudes must agree within the general angular tolerance
+(`--tolerance`, 10 degrees by default). Widening that tolerance to loosen `opposition` or
+`quadrature` therefore also loosens the latitude requirement in the Parker modes. This is
+separate from `--latitude-tolerance`, which filters the latitude span of a matched group
+afterwards.
+
+The browser explorer draws this mapping as a dotted curve from a body inward to the source
+surface, using the wind speed the run was screened with. It is the same ballistic path the
+screening evaluates, so two matched bodies converge near the source surface. It assumes one
+constant radial wind speed and holds latitude fixed along the path, and it is not a modelled
+magnetic field line.
+
 ## Interpretation
 
 This convention is a ballistic backmapping approximation. It is useful for identifying candidate

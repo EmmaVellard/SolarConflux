@@ -398,28 +398,50 @@
       <p>
         Cone compares circular longitude separation. Opposition targets 180°;
         quadrature targets 90°. Groups share an anchor body: every pair in a
-        multi-body group does not necessarily satisfy the condition.
+        multi-body group does not necessarily satisfy the condition. At least two
+        bodies besides the Sun are needed, since a separation needs two
+        observers. The readout under the plot names the windows containing the
+        displayed sample, so entering and leaving one is explicit.
       </p>
       <h3>Parker convention</h3>
       <p>
         Source longitude = body longitude + Ω × (radius − source radius) / wind
         speed. The rotation period is 25.38 days, source radius is 1,740,000 km,
         and footpoint tolerance is 5°. One uniform wind speed is used for all
-        bodies.
+        bodies. The Parker modes also require the two latitudes to agree within
+        the angular tolerance, so widening that tolerance loosens them.
+      </p>
+      <p>
+        The dotted curve traces this mapping from a body inward to the source
+        surface, drawn only for bodies that a Parker or cone-Parker window
+        matched at the displayed sample. It is a ballistic flow path under one
+        constant wind speed, <strong>not</strong> a modelled magnetic field line.
       </p>
       <h3>Time & provenance</h3>
       <p>
         Times are UTC. Durations span the first to last matching sample; a
         single-sample event has zero duration. Boundaries are not interpolated.
-        The chart is a projection of actual samples; it does not draw magnetic
-        field lines. Imported provenance is supplied by the file and is not
-        independently verified.
+        Apart from that dotted curve, the chart shows only retrieved samples and
+        the straight lines joining them; it draws no orbits or field lines.
+        Imported provenance is supplied by the file and is not independently
+        verified.
+      </p>
+      <p>
+        A body whose ephemeris begins or ends inside the requested period
+        contributes only the covered part and takes no part in the geometry
+        outside it, so an alignment involving it ends when its coverage does.
+        Such a body is named in the run feedback and in the exported metadata,
+        and the explorer marks it where it has no sample rather than drawing it
+        at the wrong time.
       </p>
       <h3>Browser operation</h3>
       <p>
-        Live requests send the selected body names and UTC periods to the
-        SolarConflux retrieval service, which fetches Horizons ephemerides.
-        Imported files stay in your browser. Python screening runs here using
+        Live requests send the selected body names, UTC periods and chosen
+        ephemeris backend to the SolarConflux retrieval service, which reads
+        either JPL Horizons or SPICE kernels. Under <em>SPICE where available</em>
+        the backend used for each body is recorded in the exported metadata, so a
+        mixed run states which body came from where. Imported files stay in your
+        browser. Python screening runs here using
         the pinned Pyodide runtime. Run history stores trajectories, settings
         and results locally on this browser; download backups before clearing
         browser data. The Sun is displayed as the HCI origin and is excluded
